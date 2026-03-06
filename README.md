@@ -1,13 +1,15 @@
-# Minimal Mojo interpreter (JavaScript)
+# Minimal Mojo 🔥 interpreter (JavaScript)
 
 A **source-level transpiler** that reads simple Mojo programs and runs them by translating to JavaScript and executing with a small runtime.
+
+**Try it in the browser:** [https://exergy-connect.github.io/mojo-js/web/](https://exergy-connect.github.io/mojo-js/web/)
 
 ## Usage
 
 ```bash
 node run.js <file.mojo> [args...]
 # Example:
-node run.js ../mojo/ivi_standalone.mojo 3127
+node run.js ivi_standalone.mojo 3127
 ```
 
 ## What it does
@@ -41,6 +43,6 @@ Opens `web/index.html` in a browser to run Mojo from the textarea. A **GitHub Ac
 
 ## Status
 
-The pipeline can parse and run **simple** Mojo programs. Complex files like `ivi_standalone.mojo` may hit remaining parser/emitter edge cases (newlines, indentation, multi-line params). Fixes are added as needed.
+The pipeline parses and runs a **Mojo subset** sufficient for programs like `ivi_standalone.mojo` (structs, `fn`/`def`, control flow, `+=`, etc.). Unsupported syntax or further edge cases may require parser/emitter updates.
 
 To try a minimal program, use a short script that only uses the supported subset (e.g. `def main():` with `print`, `argv`, `atol`, `range`, `len`).
