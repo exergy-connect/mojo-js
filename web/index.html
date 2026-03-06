@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Igniting Mojo 🔥 on the Web</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Orbitron:wght@500;700&display=swap" rel="stylesheet" />
+  <style>
+    /* The Ignition Point — Launchpad theme */
+    :root {
+      --cockpit-bg: #0a0c10;
+      --panel-bg: #0f1218;
+      --panel-border: #1e2633;
+      --cold: #3d7ab8;
+      --warm: #c45c2a;
+      --hot: #ff6b35;
+      --white-hot: #fff4e6;
+      --accent-glow: rgba(255, 107, 53, 0.5);
+      --text: #c8d1dc;
+      --text-dim: #6b7a8c;
+      --success: #2ecc71;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Orbitron', system-ui, sans-serif;
+      font-size: 14px;
+      margin: 0;
+      background: var(--cockpit-bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse 100% 80% at 50% 0%, rgba(255, 107, 53, 0.08) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; position: relative; z-index: 1; flex: 1; }
+    .header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    .logo-wrap {
+      display: inline-block;
+      transition: filter 0.2s;
+    }
+    .logo-wrap .logo {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--text);
+      text-shadow: 0 0 20px rgba(255, 107, 53, 0.3);
+    }
+    .logo-wrap .logo .flame { color: var(--hot); }
+    /* Flickering glow when code is running */
+    body.running .logo-wrap {
+      animation: flicker-glow 0.12s ease-in-out infinite alternate;
+    }
+    @keyframes flicker-glow {
+      0% {
+        filter: drop-shadow(0 0 6px var(--accent-glow)) drop-shadow(0 0 12px rgba(255, 107, 53, 0.25));
+      }
+      100% {
+        filter: drop-shadow(0 0 18px var(--accent-glow)) drop-shadow(0 0 28px rgba(255, 107, 53, 0.4));
+      }
+    }
+    body.running .logo-wrap .logo .flame {
+      animation: flame-flicker 0.08s ease-in-out infinite alternate;
+    }
+    @keyframes flame-flicker {
+      0% { opacity: 0.95; text-shadow: 0 0 8px var(--hot); }
+      100% { opacity: 1; text-shadow: 0 0 14px var(--white-hot); }
+    }
+    .tagline {
+      font-size: 0.75rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-top: 0.35rem;
+    }
+    p { color: var(--text-dim); margin: 0 0 1rem; line-height: 1.5; font-size: 0.85rem; }
+    code { font-family: 'JetBrains Mono', monospace; color: var(--warm); background: var(--panel-bg); padding: 0.2em 0.5em; border-radius: 4px; border: 1px solid var(--panel-border); }
+    .label { color: var(--text-dim); font-size: 0.75rem; letter-spacing: 0.05em; margin-bottom: 0.35rem; text-transform: uppercase; }
+    textarea {
+      width: 100%;
+      min-height: 320px;
+      padding: 0.875rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      color: var(--text);
+      resize: vertical;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    textarea:focus { outline: none; border-color: var(--hot); box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.2); }
+    .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; }
+    input[type="text"] {
+      flex: 1;
+      min-width: 120px;
+      padding: 0.5rem 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      color: var(--text);
+      font: inherit;
+    }
+    input[type="text"]:focus { outline: none; border-color: var(--hot); }
+    button {
+      padding: 0.5rem 1rem;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.2s;
+    }
+    button:hover { transform: translateY(-1px); }
+    #run {
+      background: linear-gradient(180deg, var(--hot) 0%, #d94a1a 100%);
+      color: #fff;
+      box-shadow: 0 2px 12px rgba(255, 107, 53, 0.35);
+    }
+    #run:hover { box-shadow: 0 4px 20px rgba(255, 107, 53, 0.45); }
+    #byom {
+      background: var(--panel-bg);
+      color: var(--text-dim);
+      border: 1px solid var(--panel-border);
+    }
+    #byom:hover { color: var(--hot); border-color: var(--hot); }
+    /* Console — Heat map (blue = cold/static → red/white = hot/executing) */
+    .console-wrap {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      overflow: hidden;
+      min-height: 120px;
+    }
+    #output {
+      margin: 0;
+      padding: 0.875rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      line-height: 1.5;
+      min-height: 100px;
+      border: none;
+      background: transparent;
+    }
+    #output .heat-line {
+      display: block;
+      --t: 0;
+      color: color-mix(in srgb, var(--cold) calc((1 - var(--t)) * 100%), var(--white-hot) calc(var(--t) * 100%));
+      text-shadow: 0 0 8px color-mix(in srgb, var(--cold) calc((1 - var(--t)) * 100%), var(--hot) calc(var(--t) * 80%));
+    }
+    #output.empty .heat-line { color: var(--text-dim); }
+    /* Status bar */
+    .status-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 0.5rem 1.5rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      background: var(--panel-bg);
+      border-top: 1px solid var(--panel-border);
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .status-bar .copyright {
+      font-size: 0.7rem;
+      letter-spacing: 0.05em;
+      text-transform: none;
+    }
+    .status-bar.lift-off {
+      color: var(--success);
+      animation: status-pulse 0.6s ease-out;
+    }
+    @keyframes status-pulse {
+      0% { color: var(--hot); text-shadow: 0 0 12px var(--accent-glow); }
+      100% { color: var(--success); }
+    }
+    .status-bar .status-text { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo-wrap" id="logo-wrap">
+        <span class="logo" id="logo">Mojo <span class="flame">🔥</span></span>
+      </div>
+      <p class="tagline">Igniting Mojo 🔥 on the Web</p>
+    </div>
+    <p>Run a minimal Mojo subset in the browser. Use <code>argv()</code> for CLI args below.</p>
+    <div class="label">Mojo source</div>
+    <textarea id="source" spellcheck="false">def main():
+    var args = argv()
+    if len(args) &lt; 2:
+        print("Usage: pass args in the box below (e.g. script.mojo 42)")
+        return
+    var n = atol(args[1])
+    print("N =", n)
+    var r = range(5)
+    print("range(5) length:", len(r))</textarea>
+    <div class="row">
+      <span class="label" style="margin:0">argv (space-separated):</span>
+      <input type="text" id="argv" value="script.mojo 42" placeholder="script.mojo 42" />
+      <button id="run">Run</button>
+      <button id="byom" type="button" title="Bring your own Mojo 🔥">BYOM</button>
+      <input type="file" id="file-input" accept=".mojo,text/plain" style="display: none" />
+    </div>
+    <div class="label">Output</div>
+    <div class="console-wrap">
+      <pre id="output"><span class="heat-line" style="--t: 0"></span></pre>
+    </div>
+  </div>
+  <footer class="status-bar" id="status-bar">
+    <span class="status-text" id="status-text">Pre-heating...</span>
+    <span class="copyright">Copyright &#169; 2026 Exergy &#8734; LLC</span>
+  </footer>
+  <script src="./mojo-js.min.js"></script>
+  <script>
+    (function () {
+      var source = document.getElementById('source');
+      var argvInput = document.getElementById('argv');
+      var output = document.getElementById('output');
+      var runBtn = document.getElementById('run');
+      var byomBtn = document.getElementById('byom');
+      var fileInput = document.getElementById('file-input');
+      var statusBar = document.getElementById('status-bar');
+      var statusText = document.getElementById('status-text');
+
+      function escapeHtml(s) {
+        var div = document.createElement('div');
+        div.textContent = s;
+        return div.innerHTML;
+      }
+      function setOutputHeatMap(text) {
+        var lines = (text || '').split('\n');
+        if (lines.length === 0) { lines = ['']; }
+        var total = lines.length;
+        output.innerHTML = lines.map(function (line, i) {
+          var t = total > 1 ? i / (total - 1) : 0;
+          return '<span class="heat-line" style="--t: ' + t + '">' + escapeHtml(line) + '</span>';
+        }).join('\n');
+        output.classList.toggle('empty', !text || text.trim() === '');
+      }
+      function setStatus(msg, liftOff) {
+        statusText.textContent = msg;
+        statusBar.classList.toggle('lift-off', !!liftOff);
+        if (liftOff) setTimeout(function () { statusBar.classList.remove('lift-off'); }, 800);
+      }
+      function run() {
+        var args = argvInput.value.trim() ? argvInput.value.trim().split(/\s+/) : [];
+        setOutputHeatMap('');
+        setStatus('Igniting...', false);
+        document.body.classList.add('running');
+        var log = console.log;
+        var buffer = [];
+        console.log = function () { buffer.push(Array.prototype.join.call(arguments, ' ')); };
+        try {
+          if (typeof runMojo !== 'undefined') {
+            runMojo(source.value, args);
+            setOutputHeatMap(buffer.join('\n'));
+            setStatus('LIFT OFF! 🔥', true);
+            setTimeout(function () { document.body.classList.remove('running'); }, 500);
+          } else {
+            setOutputHeatMap('Build missing. Run: npm run build');
+            setStatus('Abort.', false);
+            document.body.classList.remove('running');
+          }
+        } catch (e) {
+          setOutputHeatMap((e.message || e) + '');
+          setStatus('Abort.', false);
+          document.body.classList.remove('running');
+        }
+        console.log = log;
+      }
+      runBtn.addEventListener('click', run);
+      byomBtn.addEventListener('click', function () {
+        fileInput.click();
+      });
+      fileInput.addEventListener('change', function () {
+        var file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          source.value = e.target.result;
+          argvInput.value = file.name;
+          setStatus('Loaded: ' + file.name, false);
+        };
+        reader.readAsText(file);
+        fileInput.value = '';
+      });
+    })();
+  </script>
+</body>
+</html>

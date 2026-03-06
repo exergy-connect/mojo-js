@@ -1,0 +1,64 @@
+(*
+  Minimal grammar for the Mojo subset used by ivi_standalone.mojo.
+  Matches the parser in parser.js and AST in ast.d.ts.
+
+  Tokens: ID, NUMBER, STRING, keywords (struct, fn, def, var, if, else, while,
+  for, in, return, and, or, not, True, False, Self, None, Bool, Int, List,
+  Copyable, Movable, continue, pass, mut, out, inout, deinit);
+  symbols: ( ) [ ] : , . ^ * ** // = == != < <= > >= + - % -> ;
+  INDENT/DEDENT from leading spaces; NEWLINE.
+
+  Rules use token names in UPPER for terminals; lowercase for nonterminals.
+*)
+
+program         = { struct | function } ;
+
+struct          = "struct" ID [ "(" trait { "," trait } ")" ] ":" INDENT struct_body DEDENT ;
+trait           = ID ;
+struct_body     = { field | method } ;
+field           = "var" ID [ ":" type ] [ "=" expression ] ;
+method          = "fn" ID "(" param_list ")" [ "->" type ] ":" block ;
+
+param_list      = { param "," } [ param ] ;
+param           = [ "out" | "inout" | "mut" ] "self"
+                | "*"
+                | "deinit" "take" ":" "Self"
+                | ID [ ":" type ] ;
+
+function        = ( "fn" | "def" ) ID "(" param_list ")" [ "->" type ] ":" block ;
+
+block           = INDENT { statement } DEDENT
+                | statement ;
+
+statement       = "var" ID [ ":" type ] [ "=" expression ]
+                | "if" expression ":" block [ "else" ":" block ]
+                | "while" expression ":" block
+                | "for" ID "in" expression ":" block
+                | "return" [ expression ]
+                | "continue"
+                | "pass"
+                | expression "=" expression
+                | expression ;
+
+type            = "List" "[" type "]"
+                | "Int" | "Bool" | "Self" | "None"
+                | ID ;
+
+(* Expressions: precedence from lowest to highest *)
+expression      = or_expr ;
+
+or_expr         = and_expr { "or" and_expr } ;
+and_expr        = compare_expr { "and" compare_expr } ;
+compare_expr    = add_expr { ( "==" | "!=" | "<" | "<=" | ">" | ">=" ) add_expr } ;
+add_expr        = mul_expr { ( "+" | "-" ) mul_expr } ;
+mul_expr        = unary_expr { ( "*" | "//" | "%" ) unary_expr } ;
+unary_expr      = [ "not" | "-" ] postfix_expr ;
+postfix_expr    = primary_expr { "." ID | "(" [ expression { "," expression } ] ")" | "[" expression "]" | "^" } ;
+
+primary_expr    = NUMBER
+                | STRING
+                | "True" | "False"
+                | "None"
+                | ID
+                | "List" "[" type "]" [ "(" [ expression ] ")" ]
+                | "(" expression ")" ;
