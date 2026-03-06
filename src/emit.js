@@ -2,6 +2,8 @@
  * Emit JavaScript from Mojo AST. Supports simple Mojo subset (structs, fn, def, control flow, List, range, etc.).
  */
 
+const T = require('./ast-types.js');
+
 function emitProgram(program, runtimeVar = '__runtime') {
   const out = [];
   const structNames = new Set(program.structs.map((s) => s.name));
@@ -66,7 +68,7 @@ function emitStruct(struct, out, structNames, baseIndent) {
   if (copyInit) {
     out.push(`${ind}function ${name}_copy(o) { return {`);
     for (const f of struct.fields) {
-      if (f.type && f.type.kind === 'List') {
+      if (f.type && f.type.kind === T.List) {
         out.push(`${ind}  ${f.name}: (o.${f.name} && o.${f.name}.slice) ? o.${f.name}.slice() : [...(o.${f.name} || [])],`);
       } else {
         out.push(`${ind}  ${f.name}: o.${f.name},`);
@@ -80,12 +82,12 @@ function emitStruct(struct, out, structNames, baseIndent) {
 function emitStatementForSelf(stmt, out, structNames, selfVar, indent) {
   const i = ' '.repeat(indent);
   if (!stmt) return;
-  if (stmt.type === 'VarDecl') {
+  if (stmt.type === T.VarDecl) {
     const rhs = stmt.value !== null ? emitExpr(stmt.value, structNames, selfVar) : 'undefined';
     out.push(`${i}let ${stmt.name} = ${rhs};`);
     return;
   }
-  if (stmt.type === 'Assign') {
+  if (stmt.type === T.Assign) {
     const left = emitExpr(stmt.target, structNames, selfVar);
     const right = emitExpr(stmt.value, structNames, selfVar);
     if (stmt.compoundOp === '+=') {
@@ -95,20 +97,20 @@ function emitStatementForSelf(stmt, out, structNames, selfVar, indent) {
     }
     return;
   }
-  if (stmt.type === 'Return') return;
-  if (stmt.type === 'ExprStatement') {
+  if (stmt.type === T.Return) return;
+  if (stmt.type === T.ExprStatement) {
     const e = stmt.expr;
-    if (e.type === 'Member' && e.object.type === 'Id' && e.object.name === 'self') {
+    if (e.type === T.Member && e.object.type === T.Id && e.object.name === 'self') {
       const right = e.member;
       out.push(`${i}${selfVar}.${right};`);
       return;
     }
-    if (e.type === 'Call' && e.callee.type === 'Member') {
+    if (e.type === T.Call && e.callee.type === T.Member) {
       const obj = e.callee.object;
       const member = e.callee.member;
       const args = e.args.map((a) => emitExpr(a, structNames, selfVar));
       if (member === 'append') {
-        const base = obj.type === 'Id' && obj.name === 'self' ? selfVar : emitExpr(obj, structNames, selfVar);
+        const base = obj.type === T.Id && obj.name === 'self' ? selfVar : emitExpr(obj, structNames, selfVar);
         out.push(`${i}${base}.push(${args[0]});`);
         return;
       }
@@ -132,12 +134,12 @@ function emitFunction(fn, out, structNames, baseIndent) {
 function emitStatement(stmt, out, structNames, indent) {
   const i = ' '.repeat(indent);
   if (!stmt) return;
-  if (stmt.type === 'VarDecl') {
+  if (stmt.type === T.VarDecl) {
     const rhs = stmt.value !== null ? emitExpr(stmt.value, structNames) : 'undefined';
     out.push(`${i}let ${stmt.name} = ${rhs};`);
     return;
   }
-  if (stmt.type === 'Assign') {
+  if (stmt.type === T.Assign) {
     const left = emitExpr(stmt.target, structNames);
     const right = emitExpr(stmt.value, structNames);
     if (stmt.compoundOp === '+=') {
@@ -147,11 +149,11 @@ function emitStatement(stmt, out, structNames, indent) {
     }
     return;
   }
-  if (stmt.type === 'Return') {
+  if (stmt.type === T.Return) {
     out.push(stmt.value ? `${i}return ${emitExpr(stmt.value, structNames)};` : `${i}return;`);
     return;
   }
-  if (stmt.type === 'If') {
+  if (stmt.type === T.If) {
     out.push(`${i}if (${emitExpr(stmt.cond, structNames)}) {`);
     for (const s of stmt.then) emitStatement(s, out, structNames, indent + 2);
     out.push(`${i}}`);
@@ -162,13 +164,13 @@ function emitStatement(stmt, out, structNames, indent) {
     }
     return;
   }
-  if (stmt.type === 'While') {
+  if (stmt.type === T.While) {
     out.push(`${i}while (${emitExpr(stmt.cond, structNames)}) {`);
     for (const s of stmt.body) emitStatement(s, out, structNames, indent + 2);
     out.push(`${i}}`);
     return;
   }
-  if (stmt.type === 'For') {
+  if (stmt.type === T.For) {
     const it = stmt.loopVar === '_' ? '__' : stmt.loopVar;
     const iter = emitExpr(stmt.iterable, structNames);
     out.push(`${i}for (const ${it} of ${iter}) {`);
@@ -176,14 +178,14 @@ function emitStatement(stmt, out, structNames, indent) {
     out.push(`${i}}`);
     return;
   }
-  if (stmt.type === 'Continue') {
+  if (stmt.type === T.Continue) {
     out.push(`${i}continue;`);
     return;
   }
-  if (stmt.type === 'Pass') return;
-  if (stmt.type === 'ExprStatement') {
+  if (stmt.type === T.Pass) return;
+  if (stmt.type === T.ExprStatement) {
     const e = stmt.expr;
-    if (e.type === 'Call' && e.callee.type === 'Member' && e.callee.object.type === 'Id') {
+    if (e.type === T.Call && e.callee.type === T.Member && e.callee.object.type === T.Id) {
       const obj = e.callee.object.name;
       const member = e.callee.member;
       if (member === 'append' && e.args.length === 1) {
@@ -191,7 +193,7 @@ function emitStatement(stmt, out, structNames, indent) {
         return;
       }
     }
-    if (e.type === 'Member' && e.object.type === 'Id' && e.member) {
+    if (e.type === T.Member && e.object.type === T.Id && e.member) {
       const left = emitExpr(e, structNames);
       out.push(`${i}${left};`);
       return;
@@ -202,12 +204,12 @@ function emitStatement(stmt, out, structNames, indent) {
 
 function emitExpr(e, structNames, selfVar) {
   if (!e) return '';
-  if (e.type === 'Number') return String(e.value);
-  if (e.type === 'String') return JSON.stringify(e.value);
-  if (e.type === 'Bool') return e.value ? 'true' : 'false';
-  if (e.type === 'None') return 'undefined';
-  if (e.type === 'Id') return e.name === 'self' && selfVar ? selfVar : e.name;
-  if (e.type === 'Binary') {
+  if (e.type === T.Number) return String(e.value);
+  if (e.type === T.String) return JSON.stringify(e.value);
+  if (e.type === T.Bool) return e.value ? 'true' : 'false';
+  if (e.type === T.None) return 'undefined';
+  if (e.type === T.Id) return e.name === 'self' && selfVar ? selfVar : e.name;
+  if (e.type === T.Binary) {
     const left = emitExpr(e.left, structNames, selfVar);
     const right = emitExpr(e.right, structNames, selfVar);
     if (e.op === 'and') return `(${left} && ${right})`;
@@ -216,19 +218,19 @@ function emitExpr(e, structNames, selfVar) {
     const jsOp = { lt: '<', le: '<=', gt: '>', ge: '>=', eq: '===', ne: '!==' }[e.op] || e.op;
     return `(${left} ${jsOp} ${right})`;
   }
-  if (e.type === 'Unary') {
+  if (e.type === T.Unary) {
     if (e.op === 'not') return `(!${emitExpr(e.arg, structNames, selfVar)})`;
     if (e.op === '-') return `(-${emitExpr(e.arg, structNames, selfVar)})`;
     return `(${e.op}${emitExpr(e.arg, structNames, selfVar)})`;
   }
-  if (e.type === 'Member') {
+  if (e.type === T.Member) {
     const obj = emitExpr(e.object, structNames, selfVar);
     return `${obj}.${e.member}`;
   }
-  if (e.type === 'Call') {
+  if (e.type === T.Call) {
     const callee = e.callee;
     const args = e.args.map((a) => emitExpr(a, structNames, selfVar));
-    if (callee.type === 'Id') {
+    if (callee.type === T.Id) {
       if (callee.name === 'range') {
         if (args.length === 1) return `range(${args[0]})`;
         if (args.length === 2) return `rangeFromTo(${args[0]}, ${args[1]})`;
@@ -241,7 +243,7 @@ function emitExpr(e, structNames, selfVar) {
         return `${callee.name}(...([${args.join(', ')}]))`;
       }
     }
-    if (callee.type === 'Member') {
+    if (callee.type === T.Member) {
       const obj = emitExpr(callee.object, structNames, selfVar);
       const member = callee.member;
       if (member === 'append') return `${obj}.push(${args[0]})`;
@@ -250,12 +252,12 @@ function emitExpr(e, structNames, selfVar) {
     const fn = emitExpr(callee, structNames);
     return `${fn}(${args.join(', ')})`;
   }
-  if (e.type === 'Index') {
+  if (e.type === T.Index) {
     const obj = emitExpr(e.object, structNames, selfVar);
     const index = emitExpr(e.index, structNames, selfVar);
     return `${obj}[${index}]`;
   }
-  if (e.type === 'ListConstructor') {
+  if (e.type === T.ListConstructor) {
     if (e.arg) return `(${emitExpr(e.arg, structNames, selfVar)}).slice()`;
     return '[]';
   }

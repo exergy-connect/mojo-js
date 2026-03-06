@@ -3,6 +3,7 @@
  */
 
 const { tokenize } = require('./tokenizer.js');
+const T = require('./ast-types.js');
 
 class Parser {
   constructor(source) {
@@ -44,7 +45,7 @@ class Parser {
   }
 
   parseProgram() {
-    const program = { type: 'Program', structs: [], functions: [], main: null };
+    const program = { type: T.Program, structs: [], functions: [], main: null };
     this.skipNewlines();
     while (this.i < this.tokens.length && this.peek().type !== 'EOF') {
       if (this.is('DEDENT')) {
@@ -98,7 +99,7 @@ class Parser {
     this.expect('COLON');
     this.skipNewlines();
     if (this.is('INDENT')) this.advance();
-    const struct = { type: 'Struct', name, traits, fields: [], methods: [] };
+    const struct = { type: T.Struct, name, traits, fields: [], methods: [] };
     while (!this.is('DEDENT') && !this.is('EOF')) {
       this.skipNewlines();
       if (this.is('STRUCT')) break;
@@ -134,15 +135,15 @@ class Parser {
       this.expect('LBRACK');
       const inner = this.parseType();
       this.expect('RBRACK');
-      return { kind: 'List', inner };
+      return { kind: T.List, inner };
     }
     if (this.is('INT') || this.is('BOOL') || this.is('ID') || this.is('SELF')) {
       const t = this.advance();
-      return { kind: 'Id', name: t.value };
+      return { kind: T.Id, name: t.value };
     }
     if (this.is('NONE')) {
       this.advance();
-      return { kind: 'None' };
+      return { kind: T.None };
     }
     throw new Error('Expected type');
   }
@@ -216,7 +217,7 @@ class Parser {
     } else {
       body = this.parseBlock();
     }
-    return { type: 'Method', name, params, returnType, body };
+    return { type: T.Method, name, params, returnType, body };
   }
 
   parseFunction() {
@@ -275,7 +276,7 @@ class Parser {
     } else {
       body = this.parseBlock();
     }
-    return { type: 'Function', name, params, returnType, body, isDef };
+    return { type: T.Function, name, params, returnType, body, isDef };
   }
 
   parseBlock() {
@@ -304,7 +305,7 @@ class Parser {
         if (this.is('HAT')) this.advance();
       }
       this.skipNewlines();
-      return { type: 'Return', value: expr };
+      return { type: T.Return, value: expr };
     }
     if (this.is('VAR')) {
       this.advance();
@@ -326,7 +327,7 @@ class Parser {
         value = this.parseExpression();
       }
       this.skipNewlines();
-      return { type: 'VarDecl', name, valueType: type, value };
+      return { type: T.VarDecl, name, valueType: type, value };
     }
     if (this.is('IF')) {
       this.advance();
@@ -362,7 +363,7 @@ class Parser {
           elseBlock = this.parseBlock();
         }
       }
-      return { type: 'If', cond, then: thenBlock, else: elseBlock };
+      return { type: T.If, cond, then: thenBlock, else: elseBlock };
     }
     if (this.is('WHILE')) {
       this.advance();
@@ -404,7 +405,7 @@ class Parser {
       } else {
         body = [this.parseStatement()].filter(Boolean);
       }
-      return { type: 'For', loopVar, iterable, body };
+      return { type: T.For, loopVar, iterable, body };
     }
     if (this.is('CONTINUE')) {
       this.advance();
@@ -414,7 +415,7 @@ class Parser {
     if (this.is('PASS')) {
       this.advance();
       this.skipNewlines();
-      return { type: 'Pass' };
+      return { type: T.Pass };
     }
     this.skipNewlines();
     if (this.is('INDENT')) this.advance();
@@ -426,7 +427,7 @@ class Parser {
       if (this.is('INDENT')) this.advance();
       const value = this.parseExpression();
       this.skipNewlines();
-      return { type: 'Assign', target: expr, value, compoundOp: '+=' };
+      return { type: T.Assign, target: expr, value, compoundOp: '+=' };
     }
     if (this.is('ASSIGN')) {
       this.advance();
@@ -434,10 +435,10 @@ class Parser {
       if (this.is('INDENT')) this.advance();
       const value = this.parseExpression();
       this.skipNewlines();
-      return { type: 'Assign', target: expr, value };
+      return { type: T.Assign, target: expr, value };
     }
     this.skipNewlines();
-    return { type: 'ExprStatement', expr };
+    return { type: T.ExprStatement, expr };
   }
 
   parseExpression() {
@@ -450,7 +451,7 @@ class Parser {
     let left = this.parseAnd();
     while (this.is('OR')) {
       this.advance();
-      left = { type: 'Binary', op: 'or', left, right: this.parseAnd() };
+      left = { type: T.Binary, op: 'or', left, right: this.parseAnd() };
     }
     return left;
   }
@@ -459,7 +460,7 @@ class Parser {
     let left = this.parseCompare();
     while (this.is('AND')) {
       this.advance();
-      left = { type: 'Binary', op: 'and', left, right: this.parseCompare() };
+      left = { type: T.Binary, op: 'and', left, right: this.parseCompare() };
     }
     return left;
   }
@@ -469,7 +470,7 @@ class Parser {
     const ops = ['EQ', 'NE', 'LT', 'LE', 'GT', 'GE'];
     while (ops.includes(this.peek().type)) {
       const op = this.advance().type.toLowerCase();
-      left = { type: 'Binary', op, left, right: this.parseAdd() };
+      left = { type: T.Binary, op, left, right: this.parseAdd() };
     }
     return left;
   }
@@ -480,7 +481,7 @@ class Parser {
       if (this.is('RARROW')) break;
       const t = this.advance();
       const op = t.type === 'PLUS' ? '+' : '-';
-      left = { type: 'Binary', op, left, right: this.parseMul() };
+      left = { type: T.Binary, op, left, right: this.parseMul() };
     }
     return left;
   }
@@ -490,7 +491,7 @@ class Parser {
     while (this.is('STAR') || this.is('SLASHSLASH') || this.is('PERCENT')) {
       const t = this.advance();
       const op = t.type === 'STAR' ? '*' : t.type === 'SLASHSLASH' ? '//' : '%';
-      left = { type: 'Binary', op, left, right: this.parseUnary() };
+      left = { type: T.Binary, op, left, right: this.parseUnary() };
     }
     return left;
   }
@@ -498,11 +499,11 @@ class Parser {
   parseUnary() {
     if (this.is('NOT')) {
       this.advance();
-      return { type: 'Unary', op: 'not', arg: this.parseUnary() };
+      return { type: T.Unary, op: 'not', arg: this.parseUnary() };
     }
     if (this.is('MINUS')) {
       this.advance();
-      return { type: 'Unary', op: '-', arg: this.parseUnary() };
+      return { type: T.Unary, op: '-', arg: this.parseUnary() };
     }
     return this.parsePostfix();
   }
@@ -513,7 +514,7 @@ class Parser {
       if (this.is('DOT')) {
         this.advance();
         const member = this.expect('ID').value;
-        e = { type: 'Member', object: e, member };
+        e = { type: T.Member, object: e, member };
       } else if (this.is('LPAREN')) {
         this.advance();
         const args = [];
@@ -529,12 +530,12 @@ class Parser {
         this.skipNewlines();
         if (this.is('DEDENT')) this.advance();
         this.expect('RPAREN');
-        e = { type: 'Call', callee: e, args };
+        e = { type: T.Call, callee: e, args };
       } else if (this.is('LBRACK')) {
         this.advance();
         const index = this.parseExpression();
         this.expect('RBRACK');
-        e = { type: 'Index', object: e, index };
+        e = { type: T.Index, object: e, index };
       } else if (this.is('HAT')) {
         this.advance();
       } else break;
@@ -543,7 +544,7 @@ class Parser {
   }
 
   parsePrimary() {
-    if (this.is('RPAREN')) return { type: 'None' };
+    if (this.is('RPAREN')) return { type: T.None };
     if (this.is('COMMA')) {
       this.advance();
       this.skipNewlines();
@@ -557,27 +558,27 @@ class Parser {
       return this.parsePrimary();
     }
     if (this.is('NUMBER')) {
-      return { type: 'Number', value: this.advance().value };
+      return { type: T.Number, value: this.advance().value };
     }
     if (this.is('STRING')) {
-      return { type: 'String', value: this.advance().value };
+      return { type: T.String, value: this.advance().value };
     }
     if (this.is('TRUE')) {
       this.advance();
-      return { type: 'Bool', value: true };
+      return { type: T.Bool, value: true };
     }
     if (this.is('FALSE')) {
       this.advance();
-      return { type: 'Bool', value: false };
+      return { type: T.Bool, value: false };
     }
     if (this.is('NONE')) {
       this.advance();
-      return { type: 'None' };
+      return { type: T.None };
     }
     if (this.is('ID') || this.is('VAR') || this.is('OUT') || this.is('IF') ||
         this.is('FOR') || this.is('IN') || this.is('ELSE')) {
       const t = this.advance();
-      return { type: 'Id', name: t.value };
+      return { type: T.Id, name: t.value };
     }
     if (this.is('LIST')) {
       this.advance();
@@ -594,7 +595,7 @@ class Parser {
       this.skipNewlines();
       if (this.is('DEDENT')) this.advance();
       this.expect('RPAREN');
-      return { type: 'ListConstructor', inner, arg };
+      return { type: T.ListConstructor, inner, arg };
     }
     if (this.is('LPAREN')) {
       this.advance();
@@ -602,7 +603,7 @@ class Parser {
       if (this.is('INDENT')) this.advance();
       if (this.is('RPAREN')) {
         this.advance();
-        return { type: 'None' };
+        return { type: T.None };
       }
       const e = this.parseExpression();
       this.skipNewlines();
