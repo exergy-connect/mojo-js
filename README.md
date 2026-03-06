@@ -8,8 +8,9 @@ A **source-level transpiler** that reads simple Mojo programs and runs them by t
 
 ```bash
 node run.js <file.mojo> [args...]
-# Example:
-node run.js ivi_standalone.mojo 3127
+# Examples:
+node run.js web/example.mojo 42
+node run.js web/ivi_standalone.mojo 3127
 ```
 
 ## What it does

@@ -114,6 +114,18 @@
       font: inherit;
     }
     input[type="text"]:focus { outline: none; border-color: var(--hot); }
+    select {
+      padding: 0.5rem 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      color: var(--text);
+      cursor: pointer;
+      min-width: 180px;
+    }
+    select:focus { outline: none; border-color: var(--hot); }
     button {
       padding: 0.5rem 1rem;
       font-family: inherit;
@@ -209,6 +221,14 @@
       <p class="tagline">Igniting Mojo 🔥 on the Web</p>
     </div>
     <p>Run a minimal Mojo subset in the browser. Use <code>argv()</code> for CLI args below.</p>
+    <div class="row">
+      <span class="label" style="margin:0">Sample:</span>
+      <select id="sample-select">
+        <option value="example.mojo">example.mojo</option>
+        <option value="ivi_standalone.mojo">ivi_standalone.mojo</option>
+        <option value="">— Custom —</option>
+      </select>
+    </div>
     <div class="label">Mojo source</div>
     <textarea id="source" spellcheck="false">def main():
     var args = argv()
@@ -244,8 +264,10 @@
       var runBtn = document.getElementById('run');
       var byomBtn = document.getElementById('byom');
       var fileInput = document.getElementById('file-input');
+      var sampleSelect = document.getElementById('sample-select');
       var statusBar = document.getElementById('status-bar');
       var statusText = document.getElementById('status-text');
+      var defaultArgv = { 'example.mojo': 'example.mojo 42', 'ivi_standalone.mojo': 'ivi_standalone.mojo 3127' };
 
       function escapeHtml(s) {
         var div = document.createElement('div');
@@ -294,6 +316,21 @@
         console.log = log;
       }
       runBtn.addEventListener('click', run);
+      sampleSelect.addEventListener('change', function () {
+        var file = sampleSelect.value;
+        if (!file) return;
+        setStatus('Loading...', false);
+        fetch(file)
+          .then(function (r) { return r.text(); })
+          .then(function (text) {
+            source.value = text;
+            argvInput.value = defaultArgv[file] || file;
+            setStatus('Loaded: ' + file, false);
+          })
+          .catch(function () {
+            setStatus('Failed to load ' + file, false);
+          });
+      });
       byomBtn.addEventListener('click', function () {
         fileInput.click();
       });
@@ -304,6 +341,7 @@
         reader.onload = function (e) {
           source.value = e.target.result;
           argvInput.value = file.name;
+          sampleSelect.value = '';
           setStatus('Loaded: ' + file.name, false);
         };
         reader.readAsText(file);
