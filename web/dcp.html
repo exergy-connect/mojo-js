@@ -18,9 +18,15 @@
       display: flex;
       gap: 1rem;
       align-items: stretch;
-      min-height: 420px;
+      min-height: 560px;
     }
     .code-panel {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .transpiled-panel {
       flex: 1;
       min-width: 0;
       display: flex;
@@ -43,7 +49,7 @@
       border-radius: 6px;
       color: #c8d1dc;
       resize: none;
-      min-height: 320px;
+      min-height: 480px;
       box-sizing: border-box;
       white-space: pre;
     }
@@ -61,6 +67,33 @@
     }
     #deploy-btn:hover { background: #e55a2b; }
     #deploy-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    #transpiledOutput {
+      flex: 1;
+      width: 100%;
+      padding: 0.875rem;
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      background: #1a1e26;
+      border: 1px solid #2a3140;
+      border-radius: 6px;
+      color: #9ca8b8;
+      resize: none;
+      min-height: 480px;
+      box-sizing: border-box;
+      white-space: pre;
+    }
+    #transpiledOutput:focus { outline: none; border-color: #ff6b35; }
+    #transpile-btn {
+      padding: 0.35rem 0.75rem;
+      font-size: 0.8rem;
+      background: #2a3140;
+      color: #c8d1dc;
+      border: 1px solid #3a4150;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 0.5rem;
+    }
+    #transpile-btn:hover { background: #3a4150; }
     #jobConsole {
       flex: 1;
       width: 100%;
@@ -72,7 +105,7 @@
       border-radius: 6px;
       color: #c8d1dc;
       resize: none;
-      min-height: 320px;
+      min-height: 480px;
       box-sizing: border-box;
     }
     #jobConsole:focus { outline: none; border-color: #ff6b35; }
@@ -80,13 +113,18 @@
 </head>
 <body>
   <h1>DCP with Browsers — Distributive Mojo</h1>
-  <p>Load and run the Mojo DCP application. Edit the source below if needed, then click Deploy Job. Output appears in the job console on the right.</p>
+  <p>Load and run the Mojo DCP application. Edit the source below if needed, then click Deploy Job. Transpiled JavaScript appears in the middle; output in the job console on the right.</p>
 
   <div class="row">
     <div class="code-panel">
       <div class="label">Mojo application (dcp-example.mojo)</div>
       <textarea id="mojoSource" spellcheck="false"></textarea>
       <button id="deploy-btn">Deploy Job</button>
+    </div>
+    <div class="transpiled-panel">
+      <div class="label">Transpiled (JavaScript)</div>
+      <textarea id="transpiledOutput" readonly placeholder="Transpiled output will appear here..."></textarea>
+      <button id="transpile-btn" type="button">Update transpiled</button>
     </div>
     <div class="console-panel">
       <div class="label">Job console</div>
@@ -99,8 +137,26 @@
   <script>
     (function () {
       const mojoSourceEl = document.getElementById('mojoSource');
+      const transpiledEl = document.getElementById('transpiledOutput');
       const consoleEl = document.getElementById('jobConsole');
       const deployBtn = document.getElementById('deploy-btn');
+
+      function updateTranspiled() {
+        if (typeof transpileMojo === 'undefined') {
+          transpiledEl.value = '/* mojo-js not loaded */';
+          return;
+        }
+        const source = mojoSourceEl.value.trim();
+        if (!source) {
+          transpiledEl.value = '';
+          return;
+        }
+        try {
+          transpiledEl.value = transpileMojo(source);
+        } catch (e) {
+          transpiledEl.value = '/* Transpile error: ' + (e.message || e) + ' */';
+        }
+      }
 
       const log = (msg) => {
         const text = typeof msg === 'object' ? JSON.stringify(msg, null, 2) : String(msg);
@@ -177,6 +233,7 @@
 
         try {
           const jsCode = transpileMojo(source);
+          transpiledEl.value = jsCode;
           const compiled = eval(jsCode);
           const mainFn = compiled(baseRuntime);
           mainFn([]);
@@ -189,12 +246,14 @@
       }
 
       deployBtn.addEventListener('click', runMojoApp);
+      document.getElementById('transpile-btn').addEventListener('click', updateTranspiled);
 
-      // Load dcp-example.mojo and show in textarea
+      // Load dcp-example.mojo, show in textarea, and show transpiled JS
       fetch('dcp-example.mojo')
         .then((r) => { if (!r.ok) throw new Error(r.status); return r.text(); })
         .then((text) => {
           mojoSourceEl.value = text;
+          updateTranspiled();
         })
         .catch((e) => {
           mojoSourceEl.value = '# Failed to load dcp-example.mojo: ' + (e.message || e);
