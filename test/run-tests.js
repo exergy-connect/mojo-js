@@ -33,10 +33,13 @@ function runOne(mojoPath, argv = argvBase) {
 }
 
 function main() {
-  const files = fs.readdirSync(TESTS_DIR).filter((f) => f.endsWith('.mojo')).sort();
+  const allFiles = fs.readdirSync(TESTS_DIR).filter((f) => f.endsWith('.mojo')).sort();
+  const expectErrorPrefix = 'expect_error_';
+  const okFiles = allFiles.filter((f) => !path.basename(f, '.mojo').startsWith(expectErrorPrefix));
+  const errorFiles = allFiles.filter((f) => path.basename(f, '.mojo').startsWith(expectErrorPrefix));
   let passed = 0;
   let failed = 0;
-  for (const file of files) {
+  for (const file of okFiles) {
     const name = path.basename(file, '.mojo');
     const mojoPath = path.join(TESTS_DIR, file);
     const expected = `OK: ${name}`;
@@ -49,6 +52,23 @@ function main() {
       failed++;
       console.error(`  ✗ ${name}`);
       console.error(`    ${e.message}`);
+    }
+  }
+  for (const file of errorFiles) {
+    const name = path.basename(file, '.mojo');
+    const mojoPath = path.join(TESTS_DIR, file);
+    try {
+      const source = fs.readFileSync(mojoPath, 'utf8');
+      parse(source);
+      failed++;
+      console.error(`  ✗ ${name} (expected parse/tokenize error, none thrown)`);
+    } catch (e) {
+      assert(
+        e.message.includes('Unknown keyword') && e.message.includes('line'),
+        `Expected "Unknown keyword" and "line" in error, got: ${e.message}`
+      );
+      passed++;
+      console.log(`  ✓ ${name}`);
     }
   }
   console.log('');

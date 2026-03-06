@@ -10,8 +10,18 @@ const KEYWORDS = new Set([
   'Copyable', 'Movable', 'continue', 'pass', 'mut', 'out', 'inout', 'deinit',
 ]);
 
+/** Mojo/reserved keywords we do not support; tokenizer errors with line number if seen. */
+const UNSUPPORTED_KEYWORDS = new Set([
+  'async', 'await', 'raise', 'with', 'try', 'except', 'finally',
+  'match', 'class', 'lambda', 'yield', 'global', 'nonlocal', 'del', 'assert',
+]);
+
 function isKeyword(id) {
   return KEYWORDS.has(id);
+}
+
+function isUnsupportedKeyword(id) {
+  return UNSUPPORTED_KEYWORDS.has(id);
 }
 
 function isDigit(c) {
@@ -77,6 +87,9 @@ function tokenize(source) {
     const start = getLineCol();
     let s = '';
     while (i < source.length && isIdentPart(peek())) s += advance();
+    if (isUnsupportedKeyword(s)) {
+      throw new Error(`Unknown keyword '${s}' at line ${start.line}`);
+    }
     const type = isKeyword(s) ? Tok[s.toUpperCase()] : Tok.ID;
     return { type, value: s, ...start };
   }
