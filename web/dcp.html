@@ -74,6 +74,7 @@
   <div class="label">Job console</div>
   <textarea id="jobConsole" cols="120" rows="20" readonly placeholder="Job output will appear here..."></textarea>
 
+  <script src="https://scheduler.distributed.computer/dcp-client/dcp-client.js"></script>
   <script src="./mojo-js.min.js"></script>
   <script>
     (function () {
@@ -87,52 +88,37 @@
         consoleEl.scrollTop = consoleEl.scrollHeight;
       };
 
-      // DCP runtime (compute.run, progress, job with on/exec) for Mojo-emitted code
-      function progress() { log('progress'); }
-      function createJob(inputSet, workFunction, extraArgs) {
-        const id = 'job-' + Math.random().toString(36).slice(2, 9);
-        const handlers = { accepted: null, error: null };
-        return {
-          id,
-          on(evt, cb) {
-            if (handlers[evt] !== undefined) handlers[evt] = cb;
-            return this;
-          },
-          exec() {
-            if (handlers.accepted) handlers.accepted();
-            const results = [];
-            try {
-              for (let i = 0; i < inputSet.length; i++) {
-                const args = extraArgs ? [inputSet[i], ...extraArgs] : [inputSet[i]];
-                results.push(workFunction.apply(null, args));
-              }
-            } catch (e) {
-              if (handlers.error) handlers.error(e);
-              throw e;
+      // Real DCP API: compute.run(inputSet, workFunction, extraArgs) -> dcp.compute.for(...)
+      // job.exec() returns a Promise; print() awaits Promises and re-enables the button when done
+      let jobPromise = null;
+
+      function progress() {
+        log('progress');
+      }
+
+      function buildRuntime(printImpl) {
+        const dcpCompute = typeof dcp !== 'undefined' && dcp.compute;
+        const compute = dcpCompute
+          ? {
+              run(inputSet, workFunction, extraArgs) {
+                return dcpCompute.for(inputSet, workFunction, extraArgs || []);
+              },
             }
-            return results;
-          },
+          : null;
+
+        return {
+          argv: (a) => a || [],
+          atol: (s) => Number(s),
+          print: printImpl,
+          range: (n) => Array.from({ length: n }, (_, i) => i),
+          rangeFromTo: (a, b) => Array.from({ length: b - a }, (_, i) => a + i),
+          len: (x) => x.length,
+          b64encode: (s) => (typeof btoa !== 'undefined' ? btoa(unescape(encodeURIComponent(String(s)))) : ''),
+          b64decode: (s) => (typeof atob !== 'undefined' ? decodeURIComponent(escape(atob(String(s)))) : ''),
+          compute,
+          progress,
         };
       }
-      const compute = {
-        run(inputSet, workFunction, extraArgs) {
-          return createJob(inputSet, workFunction, extraArgs || []);
-        },
-      };
-
-      // Base runtime fields the emitted Mojo code expects
-      const baseRuntime = {
-        argv: (a) => a || [],
-        atol: (s) => Number(s),
-        print: (...args) => log(args.map(x => typeof x === 'object' ? JSON.stringify(x) : x).join(' ')),
-        range: (n) => Array.from({ length: n }, (_, i) => i),
-        rangeFromTo: (a, b) => Array.from({ length: b - a }, (_, i) => a + i),
-        len: (x) => x.length,
-        b64encode: (s) => (typeof btoa !== 'undefined' ? btoa(unescape(encodeURIComponent(String(s)))) : ''),
-        b64decode: (s) => (typeof atob !== 'undefined' ? decodeURIComponent(escape(atob(String(s)))) : ''),
-        compute,
-        progress,
-      };
 
       function runMojoApp() {
         const source = mojoSourceEl.value.trim();
@@ -144,8 +130,31 @@
           log('Error: mojo-js.min.js not loaded.');
           return;
         }
+        if (typeof dcp === 'undefined' || !dcp.compute) {
+          log('Error: DCP client not loaded. Check script: https://scheduler.distributed.computer/dcp-client/dcp-client.js');
+          return;
+        }
+
+        jobPromise = null;
         deployBtn.disabled = true;
         consoleEl.value = '';
+
+        const printImpl = (...args) => {
+          const single = args.length === 1 ? args[0] : null;
+          const isPromise = single != null && typeof single.then === 'function';
+          if (isPromise) {
+            jobPromise = single;
+            jobPromise
+              .then((v) => log(typeof v === 'object' ? JSON.stringify(v, null, 2) : v))
+              .catch((e) => log('Error: ' + (e.message || String(e))))
+              .finally(() => { deployBtn.disabled = false; });
+            return;
+          }
+          log(args.map((x) => (typeof x === 'object' ? JSON.stringify(x) : x)).join(' '));
+        };
+
+        const baseRuntime = buildRuntime(printImpl);
+
         try {
           const jsCode = transpileMojo(source);
           const compiled = eval(jsCode);
@@ -153,7 +162,8 @@
           mainFn([]);
         } catch (e) {
           log('Error: ' + (e.message || e));
-        } finally {
+        }
+        if (!jobPromise) {
           deployBtn.disabled = false;
         }
       }
