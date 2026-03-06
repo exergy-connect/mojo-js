@@ -4,6 +4,8 @@
 
 const { tokenize } = require('./tokenizer.js');
 const T = require('./ast-types.js');
+const Tok = require('./token-types.js');
+const { OP_FROM_TYPE } = require('./token-types.js');
 
 class Parser {
   constructor(source) {
@@ -12,7 +14,7 @@ class Parser {
   }
 
   peek() {
-    return this.tokens[this.i] ?? { type: 'EOF' };
+    return this.tokens[this.i] ?? { type: Tok.EOF };
   }
 
   advance() {
@@ -36,31 +38,31 @@ class Parser {
   }
 
   skipNewlines() {
-    while (this.is('NEWLINE')) this.advance();
+    while (this.is(Tok.NEWLINE)) this.advance();
   }
 
   /** Skip NEWLINE and DEDENT (e.g. after a statement where we want to skip past a block end). */
   skipNewlinesAndDedents() {
-    while (this.is('NEWLINE') || this.is('DEDENT')) this.advance();
+    while (this.is(Tok.NEWLINE) || this.is(Tok.DEDENT)) this.advance();
   }
 
   parseProgram() {
     const program = { type: T.Program, structs: [], functions: [], main: null };
     this.skipNewlines();
-    while (this.i < this.tokens.length && this.peek().type !== 'EOF') {
-      if (this.is('DEDENT')) {
+    while (this.i < this.tokens.length && this.peek().type !== Tok.EOF) {
+      if (this.is(Tok.DEDENT)) {
         this.advance();
         continue;
       }
-      if (this.is('ID', 'from') || this.is('DOCSTRING')) {
+      if (this.is(Tok.ID, 'from') || this.is(Tok.DOCSTRING)) {
         this.skipImportOrDocstring();
         continue;
       }
-      if (this.is('STRUCT')) {
+      if (this.is(Tok.STRUCT)) {
         program.structs.push(this.parseStruct());
         continue;
       }
-      if (this.is('FN') || this.is('DEF')) {
+      if (this.is(Tok.FN) || this.is(Tok.DEF)) {
         const fn = this.parseFunction();
         if (fn.name === 'main') program.main = fn;
         else program.functions.push(fn);
@@ -72,46 +74,46 @@ class Parser {
   }
 
   skipImportOrDocstring() {
-    if (this.is('DOCSTRING')) {
+    if (this.is(Tok.DOCSTRING)) {
       this.advance();
       return;
     }
-    if (this.is('ID', 'from')) {
-      while (!this.is('NEWLINE')) this.advance();
+    if (this.is(Tok.ID, 'from')) {
+      while (!this.is(Tok.NEWLINE)) this.advance();
       this.advance();
     }
   }
 
   parseStruct() {
-    this.expect('STRUCT');
-    const name = this.expect('ID').value;
+    this.expect(Tok.STRUCT);
+    const name = this.expect(Tok.ID).value;
     let traits = [];
-    if (this.is('LPAREN')) {
+    if (this.is(Tok.LPAREN)) {
       this.advance();
       const t = this.advance();
       traits.push(t.value);
-      while (this.is('COMMA')) {
+      while (this.is(Tok.COMMA)) {
         this.advance();
         traits.push(this.advance().value);
       }
-      this.expect('RPAREN');
+      this.expect(Tok.RPAREN);
     }
-    this.expect('COLON');
+    this.expect(Tok.COLON);
     this.skipNewlines();
-    if (this.is('INDENT')) this.advance();
+    if (this.is(Tok.INDENT)) this.advance();
     const struct = { type: T.Struct, name, traits, fields: [], methods: [] };
-    while (!this.is('DEDENT') && !this.is('EOF')) {
+    while (!this.is(Tok.DEDENT) && !this.is(Tok.EOF)) {
       this.skipNewlines();
-      if (this.is('STRUCT')) break;
-      if (this.is('VAR')) {
+      if (this.is(Tok.STRUCT)) break;
+      if (this.is(Tok.VAR)) {
         this.advance();
         this.skipNewlines();
         const fieldName = this.advance().value;
         let type = null;
-        if (this.is('COLON')) {
+        if (this.is(Tok.COLON)) {
           this.advance();
           type = this.parseType();
-        } else if (this.is('ASSIGN')) {
+        } else if (this.is(Tok.ASSIGN)) {
           this.advance();
           this.parseExpression();
         }
@@ -119,29 +121,29 @@ class Parser {
         this.skipNewlines();
         continue;
       }
-      if (this.is('FN')) {
+      if (this.is(Tok.FN)) {
         struct.methods.push(this.parseMethod());
         continue;
       }
       break;
     }
-    if (this.is('DEDENT')) this.advance();
+    if (this.is(Tok.DEDENT)) this.advance();
     return struct;
   }
 
   parseType() {
-    if (this.is('LIST')) {
+    if (this.is(Tok.LIST)) {
       this.advance();
-      this.expect('LBRACK');
+      this.expect(Tok.LBRACK);
       const inner = this.parseType();
-      this.expect('RBRACK');
+      this.expect(Tok.RBRACK);
       return { kind: T.List, inner };
     }
-    if (this.is('INT') || this.is('BOOL') || this.is('ID') || this.is('SELF')) {
+    if (this.is(Tok.INT) || this.is(Tok.BOOL) || this.is(Tok.ID) || this.is(Tok.SELF)) {
       const t = this.advance();
       return { kind: T.Id, name: t.value };
     }
-    if (this.is('NONE')) {
+    if (this.is(Tok.NONE)) {
       this.advance();
       return { kind: T.None };
     }
@@ -149,71 +151,71 @@ class Parser {
   }
 
   parseMethod() {
-    this.expect('FN');
-    const name = this.expect('ID').value;
-    this.expect('LPAREN');
+    this.expect(Tok.FN);
+    const name = this.expect(Tok.ID).value;
+    this.expect(Tok.LPAREN);
     const params = [];
-    while (!this.is('RPAREN')) {
-      if (this.is('STAR')) {
+    while (!this.is(Tok.RPAREN)) {
+      if (this.is(Tok.STAR)) {
         this.advance();
-        if (this.is('COMMA')) this.advance();
+        if (this.is(Tok.COMMA)) this.advance();
         continue;
       }
-      if (this.is('DEINIT')) {
+      if (this.is(Tok.DEINIT)) {
         this.advance();
-        const paramName = this.expect('ID').value;
-        this.expect('COLON');
+        const paramName = this.expect(Tok.ID).value;
+        this.expect(Tok.COLON);
         params.push({ name: paramName, type: this.parseType() });
-        if (!this.is('RPAREN')) this.expect('COMMA');
+        if (!this.is(Tok.RPAREN)) this.expect(Tok.COMMA);
         continue;
       }
-      if (this.is('OUT') || this.is('INOUT') || this.is('MUT')) {
+      if (this.is(Tok.OUT) || this.is(Tok.INOUT) || this.is(Tok.MUT)) {
         this.advance();
         this.skipNewlines();
-        if (this.is('ID') && this.peek().value === 'self') {
+        if (this.is(Tok.ID) && this.peek().value === 'self') {
           params.push({ name: 'self', type: null });
           this.advance();
-          if (!this.is('RPAREN')) this.expect('COMMA');
+          if (!this.is(Tok.RPAREN)) this.expect(Tok.COMMA);
           continue;
         }
       }
       this.skipNewlines();
-      if (this.is('INDENT')) this.advance();
-      if (!this.is('ID')) break;
+      if (this.is(Tok.INDENT)) this.advance();
+      if (!this.is(Tok.ID)) break;
       const paramName = this.advance().value;
       if (paramName === 'self') {
         params.push({ name: 'self', type: null });
-        if (this.is('COMMA')) this.advance();
+        if (this.is(Tok.COMMA)) this.advance();
         continue;
       }
       this.skipNewlines();
-      if (this.is('INDENT')) this.advance();
+      if (this.is(Tok.INDENT)) this.advance();
       let type = null;
-      if (this.is('COLON')) {
+      if (this.is(Tok.COLON)) {
         this.advance();
         type = this.parseType();
       }
       params.push({ name: paramName, type });
       this.skipNewlines();
-      if (!this.is('RPAREN')) this.expect('COMMA');
+      if (!this.is(Tok.RPAREN)) this.expect(Tok.COMMA);
     }
     this.skipNewlines();
-    if (this.is('DEDENT')) this.advance();
-    this.expect('RPAREN');
+    if (this.is(Tok.DEDENT)) this.advance();
+    this.expect(Tok.RPAREN);
     let returnType = null;
-    if (this.is('RARROW')) {
+    if (this.is(Tok.RARROW)) {
       this.advance();
       returnType = this.parseType();
     }
     this.skipNewlines();
-    if (this.is('INDENT')) this.advance();
-    if (this.is('COLON')) this.advance();
+    if (this.is(Tok.INDENT)) this.advance();
+    if (this.is(Tok.COLON)) this.advance();
     this.skipNewlines();
     let body;
-    if (this.is('INDENT')) {
+    if (this.is(Tok.INDENT)) {
       this.advance();
       body = this.parseBlock();
-      if (this.is('DEDENT')) this.advance();
+      if (this.is(Tok.DEDENT)) this.advance();
     } else {
       body = this.parseBlock();
     }
@@ -221,32 +223,32 @@ class Parser {
   }
 
   parseFunction() {
-    const isDef = this.is('DEF');
+    const isDef = this.is(Tok.DEF);
     this.advance();
-    const name = this.expect('ID').value;
-    this.expect('LPAREN');
+    const name = this.expect(Tok.ID).value;
+    this.expect(Tok.LPAREN);
     const params = [];
-    while (!this.is('RPAREN')) {
-      if (this.is('OUT') || this.is('INOUT') || this.is('MUT')) {
+    while (!this.is(Tok.RPAREN)) {
+      if (this.is(Tok.OUT) || this.is(Tok.INOUT) || this.is(Tok.MUT)) {
         this.advance();
         this.skipNewlines();
-        if (this.is('ID') && this.peek().value === 'self') {
+        if (this.is(Tok.ID) && this.peek().value === 'self') {
           params.push({ name: 'self', type: null });
           this.advance();
-          if (!this.is('RPAREN')) this.expect('COMMA');
+          if (!this.is(Tok.RPAREN)) this.expect(Tok.COMMA);
           continue;
         }
       }
-      if (this.is('STAR')) {
+      if (this.is(Tok.STAR)) {
         this.advance();
-        if (this.is('COMMA')) this.advance();
+        if (this.is(Tok.COMMA)) this.advance();
         continue;
       }
       this.skipNewlines();
-      if (this.is('INDENT')) this.advance();
-      if (!this.is('ID')) break;
+      if (this.is(Tok.INDENT)) this.advance();
+      if (!this.is(Tok.ID)) break;
       const paramName = this.advance().value;
-      if (this.is('COLON')) {
+      if (this.is(Tok.COLON)) {
         this.advance();
         const type = this.parseType();
         params.push({ name: paramName, type });
@@ -254,25 +256,25 @@ class Parser {
         params.push({ name: paramName, type: null });
       }
       this.skipNewlines();
-      if (!this.is('RPAREN')) this.expect('COMMA');
+      if (!this.is(Tok.RPAREN)) this.expect(Tok.COMMA);
     }
     this.skipNewlines();
-    if (this.is('DEDENT')) this.advance();
-    this.expect('RPAREN');
+    if (this.is(Tok.DEDENT)) this.advance();
+    this.expect(Tok.RPAREN);
     let returnType = null;
-    if (this.is('RARROW')) {
+    if (this.is(Tok.RARROW)) {
       this.advance();
       returnType = this.parseType();
     }
     this.skipNewlines();
-    if (this.is('INDENT')) this.advance();
-    if (this.is('COLON')) this.advance();
+    if (this.is(Tok.INDENT)) this.advance();
+    if (this.is(Tok.COLON)) this.advance();
     this.skipNewlines();
     let body;
-    if (this.is('INDENT')) {
+    if (this.is(Tok.INDENT)) {
       this.advance();
       body = this.parseBlock();
-      if (this.is('DEDENT')) this.advance();
+      if (this.is(Tok.DEDENT)) this.advance();
     } else {
       body = this.parseBlock();
     }
@@ -281,10 +283,10 @@ class Parser {
 
   parseBlock() {
     const statements = [];
-    while (!this.is('DEDENT') && !this.is('EOF')) {
+    while (!this.is(Tok.DEDENT) && !this.is(Tok.EOF)) {
       this.skipNewlines();
-      if (this.is('DEDENT')) break;
-      if (this.is('FN') || this.is('DEF') || this.is('STRUCT')) break;
+      if (this.is(Tok.DEDENT)) break;
+      if (this.is(Tok.FN) || this.is(Tok.DEF) || this.is(Tok.STRUCT)) break;
       const stmt = this.parseStatement();
       if (stmt) statements.push(stmt);
     }
@@ -292,147 +294,147 @@ class Parser {
   }
 
   parseStatement() {
-    if (this.is('NEWLINE') || this.is('DEDENT')) return null;
+    if (this.is(Tok.NEWLINE) || this.is(Tok.DEDENT)) return null;
     this.skipNewlines();
-    if (this.is('INDENT')) this.advance();
-    if (this.is('RETURN')) {
+    if (this.is(Tok.INDENT)) this.advance();
+    if (this.is(Tok.RETURN)) {
       this.advance();
       this.skipNewlines();
-      if (this.is('INDENT')) this.advance();
+      if (this.is(Tok.INDENT)) this.advance();
       let expr = null;
-      if (!this.is('VAR') && !this.is('IF') && !this.is('WHILE') && !this.is('FOR') && !this.is('DEF') && !this.is('FN') && !this.is('RETURN') && !this.is('ELSE') && !this.is('NEWLINE') && !this.is('DEDENT')) {
+      if (!this.is(Tok.VAR) && !this.is(Tok.IF) && !this.is(Tok.WHILE) && !this.is(Tok.FOR) && !this.is(Tok.DEF) && !this.is(Tok.FN) && !this.is(Tok.RETURN) && !this.is(Tok.ELSE) && !this.is(Tok.NEWLINE) && !this.is(Tok.DEDENT)) {
         expr = this.parseExpression();
-        if (this.is('HAT')) this.advance();
+        if (this.is(Tok.HAT)) this.advance();
       }
       this.skipNewlines();
       return { type: T.Return, value: expr };
     }
-    if (this.is('VAR')) {
+    if (this.is(Tok.VAR)) {
       this.advance();
       const name = this.advance().value;
       let type = null;
       this.skipNewlines();
-      if (this.is('INDENT')) this.advance();
-      if (this.is('COLON')) {
+      if (this.is(Tok.INDENT)) this.advance();
+      if (this.is(Tok.COLON)) {
         this.advance();
         type = this.parseType();
       }
       this.skipNewlines();
-      if (this.is('INDENT')) this.advance();
+      if (this.is(Tok.INDENT)) this.advance();
       let value = null;
-      if (this.is('ASSIGN')) {
+      if (this.is(Tok.ASSIGN)) {
         this.advance();
         this.skipNewlines();
-        if (this.is('INDENT')) this.advance();
+        if (this.is(Tok.INDENT)) this.advance();
         value = this.parseExpression();
       }
       this.skipNewlines();
       return { type: T.VarDecl, name, valueType: type, value };
     }
-    if (this.is('IF')) {
+    if (this.is(Tok.IF)) {
       this.advance();
       this.skipNewlines();
-      if (this.is('INDENT')) this.advance();
+      if (this.is(Tok.INDENT)) this.advance();
       const cond = this.parseExpression();
       this.skipNewlines();
-      if (this.is('INDENT')) this.advance();
-      this.expect('COLON');
+      if (this.is(Tok.INDENT)) this.advance();
+      this.expect(Tok.COLON);
       this.skipNewlines();
       let thenBlock;
-      if (this.is('INDENT')) {
+      if (this.is(Tok.INDENT)) {
         this.advance();
         thenBlock = this.parseBlock();
-        if (this.is('DEDENT')) this.advance();
+        if (this.is(Tok.DEDENT)) this.advance();
       } else {
         thenBlock = [this.parseStatement()].filter(Boolean);
       }
       let elseBlock = [];
       for (;;) {
         this.skipNewlines();
-        if (!this.is('ELSE')) break;
+        if (!this.is(Tok.ELSE)) break;
         this.advance();
-        if (this.is('COLON')) this.advance();
+        if (this.is(Tok.COLON)) this.advance();
         else this.skipNewlines();
-        if (this.is('INDENT')) this.advance();
+        if (this.is(Tok.INDENT)) this.advance();
         this.skipNewlines();
-        if (this.is('INDENT')) {
+        if (this.is(Tok.INDENT)) {
           this.advance();
           elseBlock = this.parseBlock();
-          if (this.is('DEDENT')) this.advance();
+          if (this.is(Tok.DEDENT)) this.advance();
         } else {
           elseBlock = this.parseBlock();
         }
       }
       return { type: T.If, cond, then: thenBlock, else: elseBlock };
     }
-    if (this.is('WHILE')) {
+    if (this.is(Tok.WHILE)) {
       this.advance();
       this.skipNewlines();
-      if (this.is('INDENT')) this.advance();
+      if (this.is(Tok.INDENT)) this.advance();
       const cond = this.parseExpression();
       this.skipNewlines();
-      if (this.is('INDENT')) this.advance();
-      this.expect('COLON');
+      if (this.is(Tok.INDENT)) this.advance();
+      this.expect(Tok.COLON);
       this.skipNewlines();
       let body;
-      if (this.is('INDENT')) {
+      if (this.is(Tok.INDENT)) {
         this.advance();
         body = this.parseBlock();
-        if (this.is('DEDENT')) this.advance();
+        if (this.is(Tok.DEDENT)) this.advance();
       } else {
         body = [this.parseStatement()].filter(Boolean);
       }
-      return { type: 'While', cond, body };
+      return { type: T.While, cond, body };
     }
-    if (this.is('FOR')) {
+    if (this.is(Tok.FOR)) {
       this.advance();
       this.skipNewlines();
       const loopVar = this.advance().value;
       this.skipNewlines();
-      this.expect('IN');
+      this.expect(Tok.IN);
       this.skipNewlines();
-      if (this.is('INDENT')) this.advance();
+      if (this.is(Tok.INDENT)) this.advance();
       const iterable = this.parseExpression();
       this.skipNewlines();
-      if (this.is('INDENT')) this.advance();
-      this.expect('COLON');
+      if (this.is(Tok.INDENT)) this.advance();
+      this.expect(Tok.COLON);
       this.skipNewlines();
       let body;
-      if (this.is('INDENT')) {
+      if (this.is(Tok.INDENT)) {
         this.advance();
         body = this.parseBlock();
-        if (this.is('DEDENT')) this.advance();
+        if (this.is(Tok.DEDENT)) this.advance();
       } else {
         body = [this.parseStatement()].filter(Boolean);
       }
       return { type: T.For, loopVar, iterable, body };
     }
-    if (this.is('CONTINUE')) {
+    if (this.is(Tok.CONTINUE)) {
       this.advance();
       this.skipNewlines();
-      return { type: 'Continue' };
+      return { type: T.Continue };
     }
-    if (this.is('PASS')) {
+    if (this.is(Tok.PASS)) {
       this.advance();
       this.skipNewlines();
       return { type: T.Pass };
     }
     this.skipNewlines();
-    if (this.is('INDENT')) this.advance();
-    if (this.is('IF') || this.is('WHILE') || this.is('FOR') || this.is('RETURN') || this.is('VAR') || this.is('ELSE')) return null;
+    if (this.is(Tok.INDENT)) this.advance();
+    if (this.is(Tok.IF) || this.is(Tok.WHILE) || this.is(Tok.FOR) || this.is(Tok.RETURN) || this.is(Tok.VAR) || this.is(Tok.ELSE)) return null;
     const expr = this.parseExpression();
-    if (this.is('PLUSASSIGN')) {
+    if (this.is(Tok.PLUSASSIGN)) {
       this.advance();
       this.skipNewlines();
-      if (this.is('INDENT')) this.advance();
+      if (this.is(Tok.INDENT)) this.advance();
       const value = this.parseExpression();
       this.skipNewlines();
       return { type: T.Assign, target: expr, value, compoundOp: '+=' };
     }
-    if (this.is('ASSIGN')) {
+    if (this.is(Tok.ASSIGN)) {
       this.advance();
       this.skipNewlines();
-      if (this.is('INDENT')) this.advance();
+      if (this.is(Tok.INDENT)) this.advance();
       const value = this.parseExpression();
       this.skipNewlines();
       return { type: T.Assign, target: expr, value };
@@ -443,13 +445,13 @@ class Parser {
 
   parseExpression() {
     this.skipNewlines();
-    if (this.is('INDENT')) this.advance();
+    if (this.is(Tok.INDENT)) this.advance();
     return this.parseOr();
   }
 
   parseOr() {
     let left = this.parseAnd();
-    while (this.is('OR')) {
+    while (this.is(Tok.OR)) {
       this.advance();
       left = { type: T.Binary, op: 'or', left, right: this.parseAnd() };
     }
@@ -458,7 +460,7 @@ class Parser {
 
   parseAnd() {
     let left = this.parseCompare();
-    while (this.is('AND')) {
+    while (this.is(Tok.AND)) {
       this.advance();
       left = { type: T.Binary, op: 'and', left, right: this.parseCompare() };
     }
@@ -467,9 +469,9 @@ class Parser {
 
   parseCompare() {
     let left = this.parseAdd();
-    const ops = ['EQ', 'NE', 'LT', 'LE', 'GT', 'GE'];
-    while (ops.includes(this.peek().type)) {
-      const op = this.advance().type.toLowerCase();
+    const cmpOps = [Tok.EQ, Tok.NE, Tok.LT, Tok.LE, Tok.GT, Tok.GE];
+    while (cmpOps.includes(this.peek().type)) {
+      const op = OP_FROM_TYPE[this.advance().type];
       left = { type: T.Binary, op, left, right: this.parseAdd() };
     }
     return left;
@@ -477,10 +479,9 @@ class Parser {
 
   parseAdd() {
     let left = this.parseMul();
-    while (this.is('PLUS') || this.is('MINUS')) {
-      if (this.is('RARROW')) break;
-      const t = this.advance();
-      const op = t.type === 'PLUS' ? '+' : '-';
+    while (this.is(Tok.PLUS) || this.is(Tok.MINUS)) {
+      if (this.is(Tok.RARROW)) break;
+      const op = OP_FROM_TYPE[this.advance().type];
       left = { type: T.Binary, op, left, right: this.parseMul() };
     }
     return left;
@@ -488,20 +489,19 @@ class Parser {
 
   parseMul() {
     let left = this.parseUnary();
-    while (this.is('STAR') || this.is('SLASHSLASH') || this.is('PERCENT')) {
-      const t = this.advance();
-      const op = t.type === 'STAR' ? '*' : t.type === 'SLASHSLASH' ? '//' : '%';
+    while (this.is(Tok.STAR) || this.is(Tok.SLASHSLASH) || this.is(Tok.PERCENT)) {
+      const op = OP_FROM_TYPE[this.advance().type];
       left = { type: T.Binary, op, left, right: this.parseUnary() };
     }
     return left;
   }
 
   parseUnary() {
-    if (this.is('NOT')) {
+    if (this.is(Tok.NOT)) {
       this.advance();
       return { type: T.Unary, op: 'not', arg: this.parseUnary() };
     }
-    if (this.is('MINUS')) {
+    if (this.is(Tok.MINUS)) {
       this.advance();
       return { type: T.Unary, op: '-', arg: this.parseUnary() };
     }
@@ -511,32 +511,32 @@ class Parser {
   parsePostfix() {
     let e = this.parsePrimary();
     for (;;) {
-      if (this.is('DOT')) {
+      if (this.is(Tok.DOT)) {
         this.advance();
-        const member = this.expect('ID').value;
+        const member = this.expect(Tok.ID).value;
         e = { type: T.Member, object: e, member };
-      } else if (this.is('LPAREN')) {
+      } else if (this.is(Tok.LPAREN)) {
         this.advance();
         const args = [];
-        while (!this.is('RPAREN')) {
+        while (!this.is(Tok.RPAREN)) {
           this.skipNewlines();
-          if (this.is('DEDENT')) this.advance();
-          if (this.is('RPAREN')) break;
+          if (this.is(Tok.DEDENT)) this.advance();
+          if (this.is(Tok.RPAREN)) break;
           args.push(this.parseExpression());
           this.skipNewlines();
-          if (this.is('INDENT')) this.advance();
-          if (!this.is('RPAREN')) this.expect('COMMA');
+          if (this.is(Tok.INDENT)) this.advance();
+          if (!this.is(Tok.RPAREN)) this.expect(Tok.COMMA);
         }
         this.skipNewlines();
-        if (this.is('DEDENT')) this.advance();
-        this.expect('RPAREN');
+        if (this.is(Tok.DEDENT)) this.advance();
+        this.expect(Tok.RPAREN);
         e = { type: T.Call, callee: e, args };
-      } else if (this.is('LBRACK')) {
+      } else if (this.is(Tok.LBRACK)) {
         this.advance();
         const index = this.parseExpression();
-        this.expect('RBRACK');
+        this.expect(Tok.RBRACK);
         e = { type: T.Index, object: e, index };
-      } else if (this.is('HAT')) {
+      } else if (this.is(Tok.HAT)) {
         this.advance();
       } else break;
     }
@@ -544,71 +544,71 @@ class Parser {
   }
 
   parsePrimary() {
-    if (this.is('RPAREN')) return { type: T.None };
-    if (this.is('COMMA')) {
+    if (this.is(Tok.RPAREN)) return { type: T.None };
+    if (this.is(Tok.COMMA)) {
       this.advance();
       this.skipNewlines();
-      if (this.is('INDENT')) this.advance();
+      if (this.is(Tok.INDENT)) this.advance();
       return this.parsePrimary();
     }
-    if (this.is('COLON') || this.is('ASSIGN')) {
+    if (this.is(Tok.COLON) || this.is(Tok.ASSIGN)) {
       this.advance();
       this.skipNewlines();
-      if (this.is('INDENT')) this.advance();
+      if (this.is(Tok.INDENT)) this.advance();
       return this.parsePrimary();
     }
-    if (this.is('NUMBER')) {
+    if (this.is(Tok.NUMBER)) {
       return { type: T.Number, value: this.advance().value };
     }
-    if (this.is('STRING')) {
+    if (this.is(Tok.STRING)) {
       return { type: T.String, value: this.advance().value };
     }
-    if (this.is('TRUE')) {
+    if (this.is(Tok.TRUE)) {
       this.advance();
       return { type: T.Bool, value: true };
     }
-    if (this.is('FALSE')) {
+    if (this.is(Tok.FALSE)) {
       this.advance();
       return { type: T.Bool, value: false };
     }
-    if (this.is('NONE')) {
+    if (this.is(Tok.NONE)) {
       this.advance();
       return { type: T.None };
     }
-    if (this.is('ID') || this.is('VAR') || this.is('OUT') || this.is('IF') ||
-        this.is('FOR') || this.is('IN') || this.is('ELSE')) {
+    if (this.is(Tok.ID) || this.is(Tok.VAR) || this.is(Tok.OUT) || this.is(Tok.IF) ||
+        this.is(Tok.FOR) || this.is(Tok.IN) || this.is(Tok.ELSE)) {
       const t = this.advance();
       return { type: T.Id, name: t.value };
     }
-    if (this.is('LIST')) {
+    if (this.is(Tok.LIST)) {
       this.advance();
-      this.expect('LBRACK');
+      this.expect(Tok.LBRACK);
       const inner = this.parseType();
-      this.expect('RBRACK');
-      this.expect('LPAREN');
+      this.expect(Tok.RBRACK);
+      this.expect(Tok.LPAREN);
       let arg = null;
       this.skipNewlines();
-      if (this.is('INDENT')) this.advance();
-      if (!this.is('RPAREN')) {
+      if (this.is(Tok.INDENT)) this.advance();
+      if (!this.is(Tok.RPAREN)) {
         arg = this.parseExpression();
       }
       this.skipNewlines();
-      if (this.is('DEDENT')) this.advance();
-      this.expect('RPAREN');
+      if (this.is(Tok.DEDENT)) this.advance();
+      this.expect(Tok.RPAREN);
       return { type: T.ListConstructor, inner, arg };
     }
-    if (this.is('LPAREN')) {
+    if (this.is(Tok.LPAREN)) {
       this.advance();
       this.skipNewlines();
-      if (this.is('INDENT')) this.advance();
-      if (this.is('RPAREN')) {
+      if (this.is(Tok.INDENT)) this.advance();
+      if (this.is(Tok.RPAREN)) {
         this.advance();
         return { type: T.None };
       }
       const e = this.parseExpression();
       this.skipNewlines();
-      if (this.is('DEDENT')) this.advance();
-      this.expect('RPAREN');
+      if (this.is(Tok.DEDENT)) this.advance();
+      this.expect(Tok.RPAREN);
       return e;
     }
     throw new Error(`Unexpected token ${this.peek().type} ${this.peek().value}`);

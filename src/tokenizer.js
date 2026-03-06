@@ -2,6 +2,8 @@
  * Tokenizer for a simple Mojo subset. Yields tokens including INDENT/DEDENT for block structure.
  */
 
+const Tok = require('./token-types.js');
+
 const KEYWORDS = new Set([
   'var', 'fn', 'def', 'struct', 'if', 'else', 'while', 'for', 'in', 'return',
   'and', 'or', 'not', 'True', 'False', 'Self', 'None', 'Bool', 'Int', 'List',
@@ -68,14 +70,14 @@ function tokenize(source) {
     const start = getLineCol();
     let s = '';
     while (i < source.length && isDigit(peek())) s += advance();
-    return { type: 'NUMBER', value: parseInt(s, 10), ...start };
+    return { type: Tok.NUMBER, value: parseInt(s, 10), ...start };
   }
 
   function readIdentifier() {
     const start = getLineCol();
     let s = '';
     while (i < source.length && isIdentPart(peek())) s += advance();
-    const type = isKeyword(s) ? s.toUpperCase() : 'ID';
+    const type = isKeyword(s) ? Tok[s.toUpperCase()] : Tok.ID;
     return { type, value: s, ...start };
   }
 
@@ -92,7 +94,7 @@ function tokenize(source) {
       }
     }
     if (peek() === quote) advance();
-    return { type: 'STRING', value: s, ...start };
+    return { type: Tok.STRING, value: s, ...start };
   }
 
   function readDocstring() {
@@ -111,7 +113,7 @@ function tokenize(source) {
       }
       s += advance();
     }
-    return { type: 'DOCSTRING', value: s, ...start };
+    return { type: Tok.DOCSTRING, value: s, ...start };
   }
 
   function handleIndent() {
@@ -124,11 +126,11 @@ function tokenize(source) {
     const top = indentStack[indentStack.length - 1];
     if (spaces > top) {
       indentStack.push(spaces);
-      push({ type: 'INDENT', ...getLineCol() });
+      push({ type: Tok.INDENT, ...getLineCol() });
     } else if (spaces < top) {
       while (indentStack.length > 1 && indentStack[indentStack.length - 1] > spaces) {
         indentStack.pop();
-        push({ type: 'DEDENT', ...getLineCol() });
+        push({ type: Tok.DEDENT, ...getLineCol() });
       }
       if (indentStack[indentStack.length - 1] !== spaces) {
         throw new Error(`Indent error at line ${line}`);
@@ -148,7 +150,7 @@ function tokenize(source) {
       if (top > 0) {
         while (indentStack.length > 1) {
           indentStack.pop();
-          push({ type: 'DEDENT', ...getLineCol() });
+          push({ type: Tok.DEDENT, ...getLineCol() });
         }
       }
     }
@@ -156,7 +158,7 @@ function tokenize(source) {
 
     if (peek() === '\n') {
       advance();
-      push({ type: 'NEWLINE', ...getLineCol() });
+      push({ type: Tok.NEWLINE, ...getLineCol() });
       atLineStart = true;
       continue;
     }
@@ -194,53 +196,53 @@ function tokenize(source) {
     const start = getLineCol();
     const c = advance();
 
-    if (c === '(') { push({ type: 'LPAREN', ...start }); continue; }
-    if (c === ')') { push({ type: 'RPAREN', ...start }); continue; }
-    if (c === '[') { push({ type: 'LBRACK', ...start }); continue; }
-    if (c === ']') { push({ type: 'RBRACK', ...start }); continue; }
-    if (c === ':') { push({ type: 'COLON', ...start }); continue; }
-    if (c === ',') { push({ type: 'COMMA', ...start }); continue; }
-    if (c === '.') { push({ type: 'DOT', ...start }); continue; }
-    if (c === '^') { push({ type: 'HAT', ...start }); continue; }
+    if (c === '(') { push({ type: Tok.LPAREN, ...start }); continue; }
+    if (c === ')') { push({ type: Tok.RPAREN, ...start }); continue; }
+    if (c === '[') { push({ type: Tok.LBRACK, ...start }); continue; }
+    if (c === ']') { push({ type: Tok.RBRACK, ...start }); continue; }
+    if (c === ':') { push({ type: Tok.COLON, ...start }); continue; }
+    if (c === ',') { push({ type: Tok.COMMA, ...start }); continue; }
+    if (c === '.') { push({ type: Tok.DOT, ...start }); continue; }
+    if (c === '^') { push({ type: Tok.HAT, ...start }); continue; }
     if (c === '*') {
-      if (peek() === '*') { advance(); push({ type: 'STARSTAR', ...start }); }
-      else push({ type: 'STAR', ...start });
+      if (peek() === '*') { advance(); push({ type: Tok.STARSTAR, ...start }); }
+      else push({ type: Tok.STAR, ...start });
       continue;
     }
     if (c === '=') {
-      if (peek() === '=') { advance(); push({ type: 'EQ', ...start }); }
-      else push({ type: 'ASSIGN', ...start });
+      if (peek() === '=') { advance(); push({ type: Tok.EQ, ...start }); }
+      else push({ type: Tok.ASSIGN, ...start });
       continue;
     }
     if (c === '!') {
-      if (peek() === '=') { advance(); push({ type: 'NE', ...start }); }
-      else push({ type: 'NOT', ...start });
+      if (peek() === '=') { advance(); push({ type: Tok.NE, ...start }); }
+      else push({ type: Tok.NOT, ...start });
       continue;
     }
     if (c === '<') {
-      if (peek() === '=') { advance(); push({ type: 'LE', ...start }); }
-      else push({ type: 'LT', ...start });
+      if (peek() === '=') { advance(); push({ type: Tok.LE, ...start }); }
+      else push({ type: Tok.LT, ...start });
       continue;
     }
     if (c === '>') {
-      if (peek() === '=') { advance(); push({ type: 'GE', ...start }); }
-      else push({ type: 'GT', ...start });
+      if (peek() === '=') { advance(); push({ type: Tok.GE, ...start }); }
+      else push({ type: Tok.GT, ...start });
       continue;
     }
     if (c === '+') {
-      if (peek() === '=') { advance(); push({ type: 'PLUSASSIGN', ...start }); }
-      else push({ type: 'PLUS', ...start });
+      if (peek() === '=') { advance(); push({ type: Tok.PLUSASSIGN, ...start }); }
+      else push({ type: Tok.PLUS, ...start });
       continue;
     }
     if (c === '-') {
-      if (peek() === '>') { advance(); push({ type: 'RARROW', ...start }); }
-      else push({ type: 'MINUS', ...start });
+      if (peek() === '>') { advance(); push({ type: Tok.RARROW, ...start }); }
+      else push({ type: Tok.MINUS, ...start });
       continue;
     }
-    if (c === '%') { push({ type: 'PERCENT', ...start }); continue; }
+    if (c === '%') { push({ type: Tok.PERCENT, ...start }); continue; }
     if (c === '/') {
-      if (peek() === '/') { advance(); push({ type: 'SLASHSLASH', ...start }); }
-      else push({ type: 'SLASH', ...start });
+      if (peek() === '/') { advance(); push({ type: Tok.SLASHSLASH, ...start }); }
+      else push({ type: Tok.SLASH, ...start });
       continue;
     }
 
@@ -249,9 +251,9 @@ function tokenize(source) {
 
   while (indentStack.length > 1) {
     indentStack.pop();
-    push({ type: 'DEDENT', ...getLineCol() });
+    push({ type: Tok.DEDENT, ...getLineCol() });
   }
-  push({ type: 'NEWLINE', ...getLineCol() });
+  push({ type: Tok.NEWLINE, ...getLineCol() });
 
   return tokens;
 }

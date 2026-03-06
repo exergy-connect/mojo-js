@@ -1,7 +1,7 @@
 /**
- * Short AST type tags for smaller minified bundle. Parser and emitter use these.
+ * AST node type enum (short tags for smaller minified bundle). Parser and emitter use these.
  */
-module.exports = {
+const AST = Object.freeze({
   Program: 'P',
   Struct: 'St',
   Method: 'Mt',
@@ -27,4 +27,6 @@ module.exports = {
   Id: 'Id',
   ListConstructor: 'Lc',
   List: 'Ls',
-};
+});
+
+module.exports = AST;
