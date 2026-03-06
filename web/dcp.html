@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DCP with Browsers — Deploy Mojo</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      margin: 1rem;
+      background: #0f1218;
+      color: #c8d1dc;
+    }
+    h1 { font-size: 1.25rem; margin-bottom: 0.5rem; }
+    p { color: #6b7a8c; margin: 0 0 1rem; font-size: 0.9rem; }
+    .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7a8c; margin-bottom: 0.35rem; }
+    #mojoSource {
+      display: block;
+      width: 100%;
+      max-width: 900px;
+      padding: 0.875rem;
+      font-family: ui-monospace, monospace;
+      font-size: 12px;
+      background: #1a1e26;
+      border: 1px solid #2a3140;
+      border-radius: 6px;
+      color: #c8d1dc;
+      resize: vertical;
+      min-height: 280px;
+      box-sizing: border-box;
+      white-space: pre;
+    }
+    #deploy-btn {
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      background: #ff6b35;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 0.75rem;
+    }
+    #deploy-btn:hover { background: #e55a2b; }
+    #deploy-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    #jobConsole {
+      display: block;
+      width: 100%;
+      max-width: 900px;
+      margin-top: 0.75rem;
+      padding: 0.875rem;
+      font-family: ui-monospace, monospace;
+      font-size: 13px;
+      background: #1a1e26;
+      border: 1px solid #2a3140;
+      border-radius: 6px;
+      color: #c8d1dc;
+      resize: vertical;
+      min-height: 200px;
+      box-sizing: border-box;
+    }
+    #jobConsole:focus { outline: none; border-color: #ff6b35; }
+  </style>
+</head>
+<body>
+  <h1>DCP with Browsers — Distributive Mojo</h1>
+  <p>Load and run the Mojo DCP application. Edit the source below if needed, then click Deploy Job. Output appears in the job console.</p>
+
+  <div class="label">Mojo application (dcp-example.mojo)</div>
+  <textarea id="mojoSource" spellcheck="false"></textarea>
+
+  <button id="deploy-btn">Deploy Job</button>
+  <br /><br />
+  <div class="label">Job console</div>
+  <textarea id="jobConsole" cols="120" rows="20" readonly placeholder="Job output will appear here..."></textarea>
+
+  <script src="./mojo-js.min.js"></script>
+  <script>
+    (function () {
+      const mojoSourceEl = document.getElementById('mojoSource');
+      const consoleEl = document.getElementById('jobConsole');
+      const deployBtn = document.getElementById('deploy-btn');
+
+      const log = (msg) => {
+        const text = typeof msg === 'object' ? JSON.stringify(msg, null, 2) : String(msg);
+        consoleEl.value += text + '\n';
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+      };
+
+      // DCP runtime (compute.run, progress, job with on/exec) for Mojo-emitted code
+      function progress() { log('progress'); }
+      function createJob(inputSet, workFunction, extraArgs) {
+        const id = 'job-' + Math.random().toString(36).slice(2, 9);
+        const handlers = { accepted: null, error: null };
+        return {
+          id,
+          on(evt, cb) {
+            if (handlers[evt] !== undefined) handlers[evt] = cb;
+            return this;
+          },
+          exec() {
+            if (handlers.accepted) handlers.accepted();
+            const results = [];
+            try {
+              for (let i = 0; i < inputSet.length; i++) {
+                const args = extraArgs ? [inputSet[i], ...extraArgs] : [inputSet[i]];
+                results.push(workFunction.apply(null, args));
+              }
+            } catch (e) {
+              if (handlers.error) handlers.error(e);
+              throw e;
+            }
+            return results;
+          },
+        };
+      }
+      const compute = {
+        run(inputSet, workFunction, extraArgs) {
+          return createJob(inputSet, workFunction, extraArgs || []);
+        },
+      };
+
+      // Base runtime fields the emitted Mojo code expects
+      const baseRuntime = {
+        argv: (a) => a || [],
+        atol: (s) => Number(s),
+        print: (...args) => log(args.map(x => typeof x === 'object' ? JSON.stringify(x) : x).join(' ')),
+        range: (n) => Array.from({ length: n }, (_, i) => i),
+        rangeFromTo: (a, b) => Array.from({ length: b - a }, (_, i) => a + i),
+        len: (x) => x.length,
+        b64encode: (s) => (typeof btoa !== 'undefined' ? btoa(unescape(encodeURIComponent(String(s)))) : ''),
+        b64decode: (s) => (typeof atob !== 'undefined' ? decodeURIComponent(escape(atob(String(s)))) : ''),
+        compute,
+        progress,
+      };
+
+      function runMojoApp() {
+        const source = mojoSourceEl.value.trim();
+        if (!source) {
+          log('Error: No Mojo source loaded.');
+          return;
+        }
+        if (typeof transpileMojo === 'undefined') {
+          log('Error: mojo-js.min.js not loaded.');
+          return;
+        }
+        deployBtn.disabled = true;
+        consoleEl.value = '';
+        try {
+          const jsCode = transpileMojo(source);
+          const compiled = eval(jsCode);
+          const mainFn = compiled(baseRuntime);
+          mainFn([]);
+        } catch (e) {
+          log('Error: ' + (e.message || e));
+        } finally {
+          deployBtn.disabled = false;
+        }
+      }
+
+      deployBtn.addEventListener('click', runMojoApp);
+
+      // Load dcp-example.mojo and show in textarea
+      fetch('dcp-example.mojo')
+        .then((r) => { if (!r.ok) throw new Error(r.status); return r.text(); })
+        .then((text) => {
+          mojoSourceEl.value = text;
+        })
+        .catch((e) => {
+          mojoSourceEl.value = '# Failed to load dcp-example.mojo: ' + (e.message || e);
+        });
+    })();
+  </script>
+</body>
+</html>
