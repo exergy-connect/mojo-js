@@ -198,10 +198,18 @@
       justify-content: space-between;
       align-items: center;
     }
-    .status-bar .copyright {
+    .status-bar .copyright,
+    .status-bar .repo-link {
       font-size: 0.7rem;
       letter-spacing: 0.05em;
       text-transform: none;
+    }
+    .status-bar .repo-link {
+      color: inherit;
+      text-decoration: none;
+    }
+    .status-bar .repo-link:hover {
+      text-decoration: underline;
     }
     .status-bar.lift-off {
       color: var(--success);
@@ -255,6 +263,7 @@
   </div>
   <footer class="status-bar" id="status-bar">
     <span class="status-text" id="status-text">Pre-heating...</span>
+    <a href="https://github.com/exergy-connect/mojo-js" target="_blank" rel="noopener noreferrer" class="repo-link" title="mojo-js repo on GitHub">mojo-js</a>
     <span class="copyright">Copyright &#169; 2026 Exergy &#8734; LLC</span>
   </footer>
   <script src="./mojo-js.min.js"></script>
