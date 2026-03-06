@@ -238,6 +238,20 @@ class Parser {
     const isDef = this.is(Tok.DEF);
     this.advance();
     const name = this.expect(Tok.ID).value;
+    let typeParams = [];
+    if (this.is(Tok.LBRACK)) {
+      this.advance();
+      this.skipNewlines();
+      while (!this.is(Tok.RBRACK)) {
+        const paramName = this.expect(Tok.ID).value;
+        this.expect(Tok.COLON);
+        const paramType = this.parseType();
+        typeParams.push({ name: paramName, type: paramType });
+        this.skipNewlines();
+        if (!this.is(Tok.RBRACK)) this.expect(Tok.COMMA);
+      }
+      this.expect(Tok.RBRACK);
+    }
     this.expect(Tok.LPAREN);
     const params = [];
     while (!this.is(Tok.RPAREN)) {
@@ -290,7 +304,7 @@ class Parser {
     } else {
       body = this.parseBlock();
     }
-    return { type: T.Function, name, params, returnType, body, isDef };
+    return { type: T.Function, name, params, returnType, body, isDef, typeParams };
   }
 
   parseBlock() {
@@ -398,6 +412,12 @@ class Parser {
       }
       return { type: T.While, cond, body };
     }
+    let comptimeFor = false;
+    if (this.is(Tok.COMPTIME)) {
+      this.advance();
+      this.skipNewlines();
+      comptimeFor = true;
+    }
     if (this.is(Tok.FOR)) {
       this.advance();
       this.skipNewlines();
@@ -419,7 +439,7 @@ class Parser {
       } else {
         body = [this.parseStatement()].filter(Boolean);
       }
-      return { type: T.For, loopVar, iterable, body };
+      return { type: T.For, loopVar, iterable, body, comptime: comptimeFor };
     }
     if (this.is(Tok.CONTINUE)) {
       this.advance();
@@ -545,9 +565,38 @@ class Parser {
         e = { type: T.Call, callee: e, args };
       } else if (this.is(Tok.LBRACK)) {
         this.advance();
-        const index = this.parseExpression();
+        const typeArgs = [];
+        while (!this.is(Tok.RBRACK)) {
+          this.skipNewlines();
+          if (this.is(Tok.DEDENT)) this.advance();
+          if (this.is(Tok.RBRACK)) break;
+          typeArgs.push(this.parseExpression());
+          this.skipNewlines();
+          if (this.is(Tok.INDENT)) this.advance();
+          if (!this.is(Tok.RBRACK)) this.expect(Tok.COMMA);
+        }
         this.expect(Tok.RBRACK);
-        e = { type: T.Index, object: e, index };
+        if (this.is(Tok.LPAREN) && typeArgs.length > 0) {
+          this.advance();
+          const args = [];
+          while (!this.is(Tok.RPAREN)) {
+            this.skipNewlines();
+            if (this.is(Tok.DEDENT)) this.advance();
+            if (this.is(Tok.RPAREN)) break;
+            args.push(this.parseExpression());
+            this.skipNewlines();
+            if (this.is(Tok.INDENT)) this.advance();
+            if (!this.is(Tok.RPAREN)) this.expect(Tok.COMMA);
+          }
+          this.skipNewlines();
+          if (this.is(Tok.DEDENT)) this.advance();
+          this.expect(Tok.RPAREN);
+          e = { type: T.Call, callee: e, typeArgs, args };
+        } else if (typeArgs.length === 1) {
+          e = { type: T.Index, object: e, index: typeArgs[0] };
+        } else {
+          throw new Error('Expected ] or single index expression');
+        }
       } else if (this.is(Tok.HAT)) {
         this.advance();
       } else break;

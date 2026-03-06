@@ -10,7 +10,7 @@ function emitProgram(program, runtimeVar = '__runtime') {
 
   const inner = '    ';
   out.push(`(function(${runtimeVar}) {`);
-  out.push(`  const { argv, atol, print, range, rangeFromTo, len, b64encode, b64decode } = ${runtimeVar};`);
+  out.push(`  const { argv, atol, print, range, rangeFromTo, len, b64encode, b64decode, axialForce, radialForce } = ${runtimeVar};`);
   out.push(`  return function(__argv) {`);
   out.push('');
 
@@ -131,7 +131,9 @@ function emitStatementForSelf(stmt, out, structNames, selfVar, indent) {
 function emitFunction(fn, out, structNames, baseIndent) {
   const ind = baseIndent || '  ';
   const name = fn.name;
-  const params = fn.params.map((p) => p.name).filter((n) => n !== 'self');
+  const typeParamNames = (fn.typeParams || []).map((p) => p.name);
+  const paramNames = fn.params.map((p) => p.name).filter((n) => n !== 'self');
+  const params = [...typeParamNames, ...paramNames];
   out.push(`${ind}function ${name}(${params.join(', ')}) {`);
   for (const stmt of fn.body) {
     emitStatement(stmt, out, structNames, ind.length + 2);
@@ -238,30 +240,34 @@ function emitExpr(e, structNames, selfVar) {
   }
   if (e.type === T.Call) {
     const callee = e.callee;
+    const typeArgs = (e.typeArgs || []).map((a) => emitExpr(a, structNames, selfVar));
     const args = e.args.map((a) => emitExpr(a, structNames, selfVar));
+    const allArgs = [...typeArgs, ...args];
     if (callee.type === T.Id) {
       if (callee.name === 'range') {
-        if (args.length === 1) return `range(${args[0]})`;
-        if (args.length === 2) return `rangeFromTo(${args[0]}, ${args[1]})`;
+        if (allArgs.length === 1) return `range(${allArgs[0]})`;
+        if (allArgs.length === 2) return `rangeFromTo(${allArgs[0]}, ${allArgs[1]})`;
       }
-      if (callee.name === 'len') return `len(${args[0]})`;
+      if (callee.name === 'len') return `len(${allArgs[0]})`;
       if (callee.name === 'argv') return 'argv(__argv)';
-      if (callee.name === 'atol') return `atol(${args[0]})`;
-      if (callee.name === 'print') return `print(...[${args.join(', ')}])`;
-      if (callee.name === 'b64encode') return args.length >= 1 ? `b64encode(${args[0]})` : 'b64encode("")';
-      if (callee.name === 'b64decode') return args.length >= 1 ? `b64decode(${args[0]})` : 'b64decode("")';
+      if (callee.name === 'atol') return `atol(${allArgs[0]})`;
+      if (callee.name === 'print') return `print(...[${allArgs.join(', ')}])`;
+      if (callee.name === 'b64encode') return allArgs.length >= 1 ? `b64encode(${allArgs[0]})` : 'b64encode("")';
+      if (callee.name === 'b64decode') return allArgs.length >= 1 ? `b64decode(${allArgs[0]})` : 'b64decode("")';
+      if (callee.name === 'axialForce') return `(axialForce && axialForce(${allArgs.join(', ')}))`;
+      if (callee.name === 'radialForce') return `(radialForce && radialForce(${allArgs.join(', ')}))`;
       if (structNames.has(callee.name)) {
-        return `${callee.name}(...([${args.join(', ')}]))`;
+        return `${callee.name}(...([${allArgs.join(', ')}]))`;
       }
     }
     if (callee.type === T.Member) {
       const obj = emitExpr(callee.object, structNames, selfVar);
       const member = callee.member;
-      if (member === 'append') return `${obj}.push(${args[0]})`;
+      if (member === 'append') return `${obj}.push(${allArgs[0]})`;
       if (member === 'copy') return `(${obj}.copy ? ${obj}.copy() : (Array.isArray(${obj}) ? ${obj}.slice() : (typeof ${obj} === 'object' && ${obj} !== null ? { ...${obj} } : ${obj})))`;
     }
     const fn = emitExpr(callee, structNames);
-    return `${fn}(${args.join(', ')})`;
+    return `${fn}(${allArgs.join(', ')})`;
   }
   if (e.type === T.Index) {
     const obj = emitExpr(e.object, structNames, selfVar);

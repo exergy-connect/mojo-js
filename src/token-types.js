@@ -63,6 +63,7 @@ const Tok = Object.freeze({
   OUT: 'Ou',
   INOUT: 'Io',
   DEINIT: 'Di',
+  COMPTIME: 'Ct',
 });
 
 /** Token type -> operator string for Binary/Unary nodes (eq, ne, +, -, //, etc.). */

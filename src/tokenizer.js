@@ -8,6 +8,7 @@ const KEYWORDS = new Set([
   'var', 'fn', 'def', 'struct', 'if', 'else', 'while', 'for', 'in', 'return',
   'and', 'or', 'not', 'True', 'False', 'Self', 'None', 'Bool', 'Int', 'List',
   'Copyable', 'Movable', 'continue', 'pass', 'mut', 'out', 'inout', 'deinit',
+  'comptime',
 ]);
 
 /** Mojo/reserved keywords we do not support; tokenizer errors with line number if seen. */
@@ -80,7 +81,17 @@ function tokenize(source) {
     const start = getLineCol();
     let s = '';
     while (i < source.length && isDigit(peek())) s += advance();
-    return { type: Tok.NUMBER, value: parseInt(s, 10), ...start };
+    if (peek() === '.' && isDigit(source[i + 1])) {
+      s += advance();
+      while (i < source.length && isDigit(peek())) s += advance();
+    }
+    if (peek() === 'e' || peek() === 'E') {
+      s += advance();
+      if (peek() === '+' || peek() === '-') s += advance();
+      while (i < source.length && isDigit(peek())) s += advance();
+    }
+    const num = s.includes('.') || s.includes('e') || s.includes('E') ? parseFloat(s) : parseInt(s, 10);
+    return { type: Tok.NUMBER, value: num, ...start };
   }
 
   function readIdentifier() {
