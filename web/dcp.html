@@ -14,10 +14,27 @@
     h1 { font-size: 1.25rem; margin-bottom: 0.5rem; }
     p { color: #6b7a8c; margin: 0 0 1rem; font-size: 0.9rem; }
     .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7a8c; margin-bottom: 0.35rem; }
+    .row {
+      display: flex;
+      gap: 1rem;
+      align-items: stretch;
+      min-height: 420px;
+    }
+    .code-panel {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .console-panel {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
     #mojoSource {
-      display: block;
+      flex: 1;
       width: 100%;
-      max-width: 900px;
       padding: 0.875rem;
       font-family: ui-monospace, monospace;
       font-size: 12px;
@@ -25,11 +42,12 @@
       border: 1px solid #2a3140;
       border-radius: 6px;
       color: #c8d1dc;
-      resize: vertical;
-      min-height: 280px;
+      resize: none;
+      min-height: 320px;
       box-sizing: border-box;
       white-space: pre;
     }
+    #mojoSource:focus { outline: none; border-color: #ff6b35; }
     #deploy-btn {
       padding: 0.5rem 1rem;
       font-size: 0.9rem;
@@ -39,15 +57,13 @@
       border: none;
       border-radius: 6px;
       cursor: pointer;
-      margin-top: 0.75rem;
+      margin-top: 0.5rem;
     }
     #deploy-btn:hover { background: #e55a2b; }
     #deploy-btn:disabled { opacity: 0.6; cursor: not-allowed; }
     #jobConsole {
-      display: block;
+      flex: 1;
       width: 100%;
-      max-width: 900px;
-      margin-top: 0.75rem;
       padding: 0.875rem;
       font-family: ui-monospace, monospace;
       font-size: 13px;
@@ -55,8 +71,8 @@
       border: 1px solid #2a3140;
       border-radius: 6px;
       color: #c8d1dc;
-      resize: vertical;
-      min-height: 200px;
+      resize: none;
+      min-height: 320px;
       box-sizing: border-box;
     }
     #jobConsole:focus { outline: none; border-color: #ff6b35; }
@@ -64,15 +80,19 @@
 </head>
 <body>
   <h1>DCP with Browsers — Distributive Mojo</h1>
-  <p>Load and run the Mojo DCP application. Edit the source below if needed, then click Deploy Job. Output appears in the job console.</p>
+  <p>Load and run the Mojo DCP application. Edit the source below if needed, then click Deploy Job. Output appears in the job console on the right.</p>
 
-  <div class="label">Mojo application (dcp-example.mojo)</div>
-  <textarea id="mojoSource" spellcheck="false"></textarea>
-
-  <button id="deploy-btn">Deploy Job</button>
-  <br /><br />
-  <div class="label">Job console</div>
-  <textarea id="jobConsole" cols="120" rows="20" readonly placeholder="Job output will appear here..."></textarea>
+  <div class="row">
+    <div class="code-panel">
+      <div class="label">Mojo application (dcp-example.mojo)</div>
+      <textarea id="mojoSource" spellcheck="false"></textarea>
+      <button id="deploy-btn">Deploy Job</button>
+    </div>
+    <div class="console-panel">
+      <div class="label">Job console</div>
+      <textarea id="jobConsole" readonly placeholder="Job output will appear here..."></textarea>
+    </div>
+  </div>
 
   <script src="https://scheduler.distributed.computer/dcp-client/dcp-client.js"></script>
   <script src="./mojo-js.min.js"></script>
