@@ -5,7 +5,8 @@
   "type": "commonjs",
   "scripts": {
     "build": "node build.js --minify",
-    "build:dev": "node build.js"
+    "build:dev": "node build.js",
+    "test": "node test/run-tests.js"
   },
   "keywords": ["mojo", "interpreter", "transpiler"],
   "license": "MIT",

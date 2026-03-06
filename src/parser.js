@@ -173,8 +173,12 @@ class Parser {
         this.advance();
         this.skipNewlines();
         if (this.is(Tok.ID) && this.peek().value === 'self') {
-          params.push({ name: 'self', type: null });
           this.advance();
+          if (this.is(Tok.COLON)) {
+            this.advance();
+            this.parseType();
+          }
+          params.push({ name: 'self', type: null });
           if (!this.is(Tok.RPAREN)) this.expect(Tok.COMMA);
           continue;
         }
@@ -184,8 +188,12 @@ class Parser {
       if (!this.is(Tok.ID)) break;
       const paramName = this.advance().value;
       if (paramName === 'self') {
+        if (this.is(Tok.COLON)) {
+          this.advance();
+          this.parseType();
+        }
         params.push({ name: 'self', type: null });
-        if (this.is(Tok.COMMA)) this.advance();
+        if (!this.is(Tok.RPAREN)) this.expect(Tok.COMMA);
         continue;
       }
       this.skipNewlines();

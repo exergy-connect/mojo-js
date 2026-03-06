@@ -63,6 +63,15 @@ function emitStruct(struct, out, structNames, baseIndent) {
   if (copyInit) {
     out.push(`${ind}  self.copy = function() { return ${name}_copy(self); };`);
   }
+  for (const m of struct.methods) {
+    if (m.name === '__init__' || m.name === '__copyinit__') continue;
+    const params = m.params.filter((p) => p.name !== 'self').map((p) => p.name);
+    out.push(`${ind}  self.${m.name} = function(${params.join(', ')}) {`);
+    for (const stmt of m.body) {
+      emitStatement(stmt, out, structNames, ind.length + 4);
+    }
+    out.push(`${ind}  };`);
+  }
   out.push(`${ind}  return self;`);
   out.push(`${ind}}`);
   if (copyInit) {
