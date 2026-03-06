@@ -68,6 +68,10 @@ class Parser {
         else program.functions.push(fn);
         continue;
       }
+      if (this.is(Tok.ID)) {
+        const t = this.peek();
+        throw new Error(`Expected 'struct', 'fn', or 'def' at line ${t.line || 1}, got '${t.value}'`);
+      }
       this.advance();
     }
     return program;

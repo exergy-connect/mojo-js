@@ -63,10 +63,9 @@ function main() {
       failed++;
       console.error(`  ✗ ${name} (expected parse/tokenize error, none thrown)`);
     } catch (e) {
-      assert(
-        e.message.includes('Unknown keyword') && e.message.includes('line'),
-        `Expected "Unknown keyword" and "line" in error, got: ${e.message}`
-      );
+      const hasLine = e.message.includes('line');
+      const hasKeywordError = e.message.includes('Unknown keyword') || e.message.includes("Expected 'struct'");
+      assert(hasLine && hasKeywordError, `Expected error with line and keyword message, got: ${e.message}`);
       passed++;
       console.log(`  ✓ ${name}`);
     }
