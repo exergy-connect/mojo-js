@@ -15,21 +15,21 @@ node run.js web/example.mojo 42
 node run.js web/ivi_standalone.mojo 3127
 ```
 
-**Tests:** `npm test` runs the suite (43 construct tests under `test/constructs/`).
+**Tests:** `npm test` runs the suite (47 construct tests under `test/constructs/`).
 
 ## What it does
 
 1. **Tokenize** – Mojo source → tokens (including INDENT/DEDENT for block structure).
 2. **Parse** – Tokens → AST (program with structs, functions, `def main`).
 3. **Emit** – AST → JavaScript (structs as constructor functions, `fn`/`def` as functions, List → arrays).
-4. **Run** – Evaluate emitted JS with a tiny runtime (`argv`, `print`, `atol`, `range`, `len`).
+4. **Run** – Evaluate emitted JS with a tiny runtime (`argv`, `print`, `atol`, `range`, `len`, `b64encode`, `b64decode`).
 
 ## Supported Mojo subset
 
 - **Top-level:** `struct Name(Traits):` (fields, `__init__`, methods), `fn name(...):`, `def main():`
 - **Statements:** `var x = ...`, `x = ...`, `x += ...`, `if`/`else`, `while`, `for x in range(n):`, `return`, `continue`, `pass`
 - **Expressions:** literals, `+` `-` `*` `//` `%`, `==` `!=` `<` `<=` `>` `>=`, `and`/`or`/`not`, `len()`, `range(n)` / `range(a,b)`, `List[Int]()`, struct construction, `.copy()`, `.append()`, method calls (`s.method()`)
-- **Runtime:** `argv()`, `print(...)`, `atol(s)`
+- **Runtime:** `argv()`, `print(...)`, `atol(s)`, `b64encode(s)`, `b64decode(s)` ([std.base64](https://docs.modular.com/mojo/std/base64/base64/) – base64 only)
 
 ## Project layout
 
@@ -45,7 +45,7 @@ node run.js web/ivi_standalone.mojo 3127
 cd mojo-js && npm install && npm run build
 ```
 
-Opens `web/index.html` in a browser to run Mojo from the textarea.
+Opens `web/index.html` in a browser to run Mojo from the textarea. Use `?mojo=<URL>` to load a program from that URL on page load (e.g. `.../web/?mojo=https://.../script.mojo`).
 
 **CI (GitHub Actions):**
 - **`minify.yml`** – On push when `src/`, `web/entry.js`, or `build.js` change: install, `npm run build`, commit minified bundle.
