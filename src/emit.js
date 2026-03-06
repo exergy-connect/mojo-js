@@ -101,6 +101,8 @@ function emitStatementForSelf(stmt, out, structNames, selfVar, indent) {
     const right = emitExpr(stmt.value, structNames, selfVar);
     if (stmt.compoundOp === '+=') {
       out.push(`${i}${left} = ${left} + ${right};`);
+    } else if (stmt.compoundOp === '-=') {
+      out.push(`${i}${left} = ${left} - ${right};`);
     } else {
       out.push(`${i}${left} = ${right};`);
     }
@@ -155,6 +157,8 @@ function emitStatement(stmt, out, structNames, indent) {
     const right = emitExpr(stmt.value, structNames);
     if (stmt.compoundOp === '+=') {
       out.push(`${i}${left} = ${left} + ${right};`);
+    } else if (stmt.compoundOp === '-=') {
+      out.push(`${i}${left} = ${left} - ${right};`);
     } else {
       out.push(`${i}${left} = ${right};`);
     }
@@ -184,9 +188,18 @@ function emitStatement(stmt, out, structNames, indent) {
   if (stmt.type === T.For) {
     const it = stmt.loopVar === '_' ? '__' : stmt.loopVar;
     const iter = emitExpr(stmt.iterable, structNames);
-    out.push(`${i}for (const ${it} of ${iter}) {`);
-    for (const s of stmt.body) emitStatement(s, out, structNames, indent + 2);
-    out.push(`${i}}`);
+    if (stmt.ref) {
+      const refIdx = '__ref_i_' + it;
+      out.push(`${i}for (let ${refIdx} = 0; ${refIdx} < len(${iter}); ${refIdx}++) {`);
+      out.push(`${i}  let ${it} = ${iter}[${refIdx}];`);
+      for (const s of stmt.body) emitStatement(s, out, structNames, indent + 2);
+      out.push(`${i}  ${iter}[${refIdx}] = ${it};`);
+      out.push(`${i}}`);
+    } else {
+      out.push(`${i}for (const ${it} of ${iter}) {`);
+      for (const s of stmt.body) emitStatement(s, out, structNames, indent + 2);
+      out.push(`${i}}`);
+    }
     return;
   }
   if (stmt.type === T.Continue) {
@@ -277,6 +290,10 @@ function emitExpr(e, structNames, selfVar) {
   if (e.type === T.ListConstructor) {
     if (e.arg) return `(${emitExpr(e.arg, structNames, selfVar)}).slice()`;
     return '[]';
+  }
+  if (e.type === T.ListLiteral) {
+    const el = (e.elements || []).map((x) => emitExpr(x, structNames, selfVar));
+    return `[${el.join(', ')}]`;
   }
   return '';
 }

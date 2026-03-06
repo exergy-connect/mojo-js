@@ -8,7 +8,7 @@ const KEYWORDS = new Set([
   'var', 'fn', 'def', 'struct', 'if', 'else', 'while', 'for', 'in', 'return',
   'and', 'or', 'not', 'True', 'False', 'Self', 'None', 'Bool', 'Int', 'List',
   'Copyable', 'Movable', 'continue', 'pass', 'mut', 'out', 'inout', 'deinit',
-  'comptime',
+  'comptime', 'ref',
 ]);
 
 /** Mojo/reserved keywords we do not support; tokenizer errors with line number if seen. */
@@ -260,6 +260,7 @@ function tokenize(source) {
     }
     if (c === '-') {
       if (peek() === '>') { advance(); push({ type: Tok.RARROW, ...start }); }
+      else if (peek() === '=') { advance(); push({ type: Tok.MINUSASSIGN, ...start }); }
       else push({ type: Tok.MINUS, ...start });
       continue;
     }

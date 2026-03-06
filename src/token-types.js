@@ -30,6 +30,7 @@ const Tok = Object.freeze({
   GE: 'Ge',
   PLUS: 'Pl',
   PLUSASSIGN: 'Pa',
+  MINUSASSIGN: 'Ma',
   MINUS: 'Mn',
   RARROW: 'Ra',
   PERCENT: 'Pc',
@@ -64,6 +65,7 @@ const Tok = Object.freeze({
   INOUT: 'Io',
   DEINIT: 'Di',
   COMPTIME: 'Ct',
+  REF: 'Rf',
 });
 
 /** Token type -> operator string for Binary/Unary nodes (eq, ne, +, -, //, etc.). */

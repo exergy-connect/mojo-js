@@ -421,7 +421,13 @@ class Parser {
     if (this.is(Tok.FOR)) {
       this.advance();
       this.skipNewlines();
-      const loopVar = this.advance().value;
+      let refLoop = false;
+      if (this.is(Tok.REF)) {
+        this.advance();
+        this.skipNewlines();
+        refLoop = true;
+      }
+      const loopVar = this.expect(Tok.ID).value;
       this.skipNewlines();
       this.expect(Tok.IN);
       this.skipNewlines();
@@ -439,7 +445,7 @@ class Parser {
       } else {
         body = [this.parseStatement()].filter(Boolean);
       }
-      return { type: T.For, loopVar, iterable, body, comptime: comptimeFor };
+      return { type: T.For, loopVar, iterable, body, comptime: comptimeFor, ref: refLoop };
     }
     if (this.is(Tok.CONTINUE)) {
       this.advance();
@@ -462,6 +468,14 @@ class Parser {
       const value = this.parseExpression();
       this.skipNewlines();
       return { type: T.Assign, target: expr, value, compoundOp: '+=' };
+    }
+    if (this.is(Tok.MINUSASSIGN)) {
+      this.advance();
+      this.skipNewlines();
+      if (this.is(Tok.INDENT)) this.advance();
+      const value = this.parseExpression();
+      this.skipNewlines();
+      return { type: T.Assign, target: expr, value, compoundOp: '-=' };
     }
     if (this.is(Tok.ASSIGN)) {
       this.advance();
@@ -636,8 +650,23 @@ class Parser {
       this.advance();
       return { type: T.None };
     }
+    if (this.is(Tok.LBRACK)) {
+      this.advance();
+      const elements = [];
+      while (!this.is(Tok.RBRACK)) {
+        this.skipNewlines();
+        if (this.is(Tok.DEDENT)) this.advance();
+        if (this.is(Tok.RBRACK)) break;
+        elements.push(this.parseExpression());
+        this.skipNewlines();
+        if (this.is(Tok.INDENT)) this.advance();
+        if (!this.is(Tok.RBRACK)) this.expect(Tok.COMMA);
+      }
+      this.expect(Tok.RBRACK);
+      return { type: T.ListLiteral, elements };
+    }
     if (this.is(Tok.ID) || this.is(Tok.VAR) || this.is(Tok.OUT) || this.is(Tok.IF) ||
-        this.is(Tok.FOR) || this.is(Tok.IN) || this.is(Tok.ELSE)) {
+        this.is(Tok.FOR) || this.is(Tok.IN) || this.is(Tok.ELSE) || this.is(Tok.REF)) {
       const t = this.advance();
       return { type: T.Id, name: t.value };
     }

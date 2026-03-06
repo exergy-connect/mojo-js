@@ -27,6 +27,7 @@ const AST = Object.freeze({
   Id: 'Id',
   ListConstructor: 'Lc',
   List: 'Ls',
+  ListLiteral: 'Ll',
 });
 
 module.exports = AST;
