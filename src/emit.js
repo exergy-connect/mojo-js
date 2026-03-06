@@ -10,7 +10,7 @@ function emitProgram(program, runtimeVar = '__runtime') {
 
   const inner = '    ';
   out.push(`(function(${runtimeVar}) {`);
-  out.push(`  const { argv, atol, print, range, rangeFromTo, len } = ${runtimeVar};`);
+  out.push(`  const { argv, atol, print, range, rangeFromTo, len, b64encode, b64decode } = ${runtimeVar};`);
   out.push(`  return function(__argv) {`);
   out.push('');
 
@@ -248,6 +248,8 @@ function emitExpr(e, structNames, selfVar) {
       if (callee.name === 'argv') return 'argv(__argv)';
       if (callee.name === 'atol') return `atol(${args[0]})`;
       if (callee.name === 'print') return `print(...[${args.join(', ')}])`;
+      if (callee.name === 'b64encode') return args.length >= 1 ? `b64encode(${args[0]})` : 'b64encode("")';
+      if (callee.name === 'b64decode') return args.length >= 1 ? `b64decode(${args[0]})` : 'b64decode("")';
       if (structNames.has(callee.name)) {
         return `${callee.name}(...([${args.join(', ')}]))`;
       }

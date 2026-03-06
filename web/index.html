@@ -326,6 +326,31 @@
         }
         console.log = log;
       }
+      function getQueryParam(name) {
+        var m = (window.location.search || '').match(new RegExp('[?&]' + name + '=([^&]*)'));
+        return m ? decodeURIComponent(m[1].replace(/\+/g, ' ')) : '';
+      }
+      function loadMojoFromUrl(url) {
+        if (!url) return;
+        setStatus('Loading from URL...', false);
+        fetch(url)
+          .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+          .then(function (text) {
+            source.value = text;
+            sampleSelect.value = '';
+            var name = url.split('/').pop() || 'program.mojo';
+            argvInput.value = argvInput.placeholder || name;
+            setStatus('Loaded: ' + name, false);
+          })
+          .catch(function (e) {
+            setStatus('Failed to load URL: ' + (e.message || e), false);
+          });
+      }
+      (function () {
+        var mojoUrl = getQueryParam('mojo');
+        if (mojoUrl) loadMojoFromUrl(mojoUrl);
+      })();
+
       runBtn.addEventListener('click', run);
       sampleSelect.addEventListener('change', function () {
         var file = sampleSelect.value;

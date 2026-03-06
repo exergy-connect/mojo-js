@@ -39,6 +39,13 @@ function main() {
   const errorFiles = allFiles.filter((f) => path.basename(f, '.mojo').startsWith(expectErrorPrefix));
   let passed = 0;
   let failed = 0;
+  /** Extra checks for block-structure tests: output must contain these in order and must not contain forbidden. */
+  const blockStructureChecks = {
+    if_else_nested: {
+      containsInOrder: ['outer-then', 'inner-else', 'after-inner', 'after-outer'],
+      mustNotContain: ['inner-then', 'outer-else'],
+    },
+  };
   for (const file of okFiles) {
     const name = path.basename(file, '.mojo');
     const mojoPath = path.join(TESTS_DIR, file);
@@ -46,6 +53,19 @@ function main() {
     try {
       const out = runOne(mojoPath);
       assert(out.includes(expected), `Expected output to contain "${expected}", got:\n${out}`);
+      const checks = blockStructureChecks[name];
+      if (checks) {
+        let lastIdx = -1;
+        for (const s of checks.containsInOrder) {
+          const idx = out.indexOf(s);
+          assert(idx !== -1, `Expected output to contain "${s}", got:\n${out}`);
+          assert(idx > lastIdx, `Expected "${s}" after previous markers, got:\n${out}`);
+          lastIdx = idx;
+        }
+        for (const s of checks.mustNotContain) {
+          assert(!out.includes(s), `Output must not contain "${s}" (wrong block), got:\n${out}`);
+        }
+      }
       passed++;
       console.log(`  ✓ ${name}`);
     } catch (e) {
