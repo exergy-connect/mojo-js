@@ -8,10 +8,14 @@ A **source-level transpiler** that reads simple Mojo programs and runs them by t
 
 ```bash
 node run.js <file.mojo> [args...]
+node run.js -p <file.mojo>   # print emitted JS only
+
 # Examples:
 node run.js web/example.mojo 42
 node run.js web/ivi_standalone.mojo 3127
 ```
+
+**Tests:** `npm test` runs the suite (43 construct tests under `test/constructs/`).
 
 ## What it does
 
@@ -22,14 +26,15 @@ node run.js web/ivi_standalone.mojo 3127
 
 ## Supported Mojo subset
 
-- **Top-level:** `struct Name(Traits):`, `fn name(...):`, `def main():`
-- **Statements:** `var x = ...`, `if`/`else`, `while`, `for x in range(n):`, `return`
-- **Expressions:** literals, `+` `-` `*` `//` `%`, `==` `<` `>`, `and`/`or`/`not`, `len()`, `range(n)` / `range(a,b)`, `List[Int]()`, struct construction, `.copy()`, `.append()`
+- **Top-level:** `struct Name(Traits):` (fields, `__init__`, methods), `fn name(...):`, `def main():`
+- **Statements:** `var x = ...`, `x = ...`, `x += ...`, `if`/`else`, `while`, `for x in range(n):`, `return`, `continue`, `pass`
+- **Expressions:** literals, `+` `-` `*` `//` `%`, `==` `!=` `<` `<=` `>` `>=`, `and`/`or`/`not`, `len()`, `range(n)` / `range(a,b)`, `List[Int]()`, struct construction, `.copy()`, `.append()`, method calls (`s.method()`)
 - **Runtime:** `argv()`, `print(...)`, `atol(s)`
 
 ## Project layout
 
-- **`src/`** – Source: `tokenizer.js`, `parser.js`, `emit.js`, `runtime.js`, `run.js`.
+- **`src/`** – Source: `tokenizer.js`, `parser.js`, `emit.js`, `runtime.js`, `run.js`, `ast-types.js`, `token-types.js`.
+- **`test/`** – Test suite: `run-tests.js` (runner), `constructs/*.mojo` (one test per supported construct).
 - **`web/`** – Web project: `index.html` (run Mojo in the browser), `entry.js` (browser bundle entry).
 - **`run.js`** – CLI entry (delegates to `src/run.js`).
 - **`build.js`** – Bundles `web/entry.js` with esbuild; `npm run build` produces `web/mojo-js.min.js`.
@@ -40,7 +45,11 @@ node run.js web/ivi_standalone.mojo 3127
 cd mojo-js && npm install && npm run build
 ```
 
-Opens `web/index.html` in a browser to run Mojo from the textarea. A **GitHub Actions** workflow (`.github/workflows/minify.yml`) runs on push to `main`/`master` when source or build config changes: installs deps, runs `npm run build`, and uploads the minified bundle as an artifact.
+Opens `web/index.html` in a browser to run Mojo from the textarea.
+
+**CI (GitHub Actions):**
+- **`minify.yml`** – On push when `src/`, `web/entry.js`, or `build.js` change: install, `npm run build`, commit minified bundle.
+- **`test.yml`** – On push/PR when `src/` or `test/` change: install, `npm test`.
 
 ## Status
 
