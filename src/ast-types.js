@@ -4,6 +4,8 @@
 const AST = Object.freeze({
   Program: 'P',
   Struct: 'St',
+  Trait: 'Tt',
+  TraitMethod: 'Tm',
   Method: 'Mt',
   Function: 'Fn',
   Return: 'Rt',

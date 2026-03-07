@@ -6,7 +6,7 @@
 const assert = require('assert');
 const runtime = require('../src/runtime.js');
 
-const { argv, atol, print, range, rangeFromTo, len, b64encode, b64decode } = runtime;
+const { argv, atol, print, range, rangeFromTo, len, b64encode, b64decode, hasMethod, requireTrait } = runtime;
 
 function run(name, fn) {
   try {
@@ -85,6 +85,17 @@ function main() {
     const enc = b64encode('');
     assert.strictEqual(enc, '');
     assert.strictEqual(b64decode(''), '');
+  }) ? passed++ : failed++;
+
+  run('hasMethod', () => {
+    assert.strictEqual(hasMethod({ quack: () => {} }, 'quack'), true);
+    assert.strictEqual(hasMethod({}, 'quack'), false);
+    assert.strictEqual(hasMethod(null, 'quack'), false);
+  }) ? passed++ : failed++;
+
+  run('requireTrait', () => {
+    requireTrait({ quack: () => {} }, ['quack']);
+    assert.throws(() => requireTrait({}, ['quack']), /missing required method 'quack'/);
   }) ? passed++ : failed++;
 
   console.log('');

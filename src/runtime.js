@@ -1,6 +1,8 @@
 /**
  * Minimal runtime used by Mojo-transpiled code (argv, print, atol, range, len).
+ * Trait-related helpers are in runtime-traits.js and merged here.
  */
+const traitRuntime = require('./runtime-traits.js');
 
 /**
  * @param {string[]} argv - process.argv from Node (script path + args)
@@ -76,4 +78,14 @@ function b64decode(s) {
   return decodeURIComponent(escape(atob(String(s))));
 }
 
-module.exports = { argv, atol, print, range, rangeFromTo, len, b64encode, b64decode };
+module.exports = {
+  argv,
+  atol,
+  print,
+  range,
+  rangeFromTo,
+  len,
+  b64encode,
+  b64decode,
+  ...traitRuntime,
+};

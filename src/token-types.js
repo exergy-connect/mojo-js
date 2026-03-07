@@ -71,6 +71,7 @@ const Tok = Object.freeze({
   TRY: 'Ty',
   EXCEPT: 'Ec',
   RAISES: 'Rz',
+  TRAIT: 'Tt',
 });
 
 /** Token type -> operator string for Binary/Unary nodes (eq, ne, +, -, //, etc.). */

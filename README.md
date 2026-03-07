@@ -26,15 +26,16 @@ node run.js web/ivi_standalone.mojo 3127
 
 ## Supported Mojo subset
 
-- **Top-level:** `struct Name(Traits):` (fields, `__init__`, methods), `fn name(...):`, `def main():`
+- **Top-level:** `trait Name:`, `struct Name(Traits):` (fields, `__init__`, methods), `fn name(...):`, `def main():`
+- **Traits** (see [Mojo traits manual](https://docs.modular.com/mojo/manual/traits)): `trait Name:` or `trait Name(Parent):` (refinement); trait methods `fn method(self):` with body (e.g. `pass` or default impl); structs conform via `struct Name(Copyable, TraitName):`; runtime helpers `requireTrait(obj, ["method"])`, `hasMethod(obj, "method")` in `runtime-traits.js`.
 - **Structs** (see [Mojo structs manual](https://docs.modular.com/mojo/manual/structs/)): `struct Name:` or `struct Name(Copyable):` / `struct Name(Movable):`; fields as `var name: Type`; constructor `fn __init__(out self, ...):` or `fn __init__(inout self: Self, ...):`; optional `fn __copyinit__(out self, copy: Self):`; instance methods with `self` (and `mut self`); `Struct(args...)` construction and `instance.copy()` when Copyable (trait or `__copyinit__`).
 - **Statements:** `var x = ...`, `x = ...`, `x += ...`, `if`/`elif`/`else`, `while`, `for x in range(n):`, `return`, `continue`, `pass`, `raise`, `try`/`except`
 - **Expressions:** literals, `+` `-` `*` `//` `%`, `==` `!=` `<` `<=` `>` `>=`, `and`/`or`/`not`, `len()`, `range(n)` / `range(a,b)`, `List[Int]()`, struct construction, `.copy()`, `.append()`, method calls (`s.method()`)
-- **Runtime:** `argv()`, `print(...)`, `atol(s)`, `b64encode(s)`, `b64decode(s)` ([std.base64](https://docs.modular.com/mojo/std/base64/base64/) – base64 only)
+- **Runtime:** `src/runtime.js` (argv, print, atol, range, len, b64encode, b64decode); `src/runtime-traits.js` (hasMethod, requireTrait for trait conformance).
 
 ## Project layout
 
-- **`src/`** – Source: `tokenizer.js`, `parser.js`, `emit.js`, `runtime.js`, `run.js`, `ast-types.js`, `token-types.js`.
+- **`src/`** – Source: `tokenizer.js`, `parser.js`, `emit.js`, `runtime.js`, `runtime-traits.js`, `run.js`, `ast-types.js`, `token-types.js`.
 - **`test/`** – Test suite: `run-tests.js` (runner), `constructs/*.mojo` (one test per supported construct).
 - **`web/`** – Web project: `index.html` (run Mojo in the browser), `entry.js` (browser bundle entry).
 - **`run.js`** – CLI entry (delegates to `src/run.js`).

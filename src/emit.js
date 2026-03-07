@@ -10,7 +10,7 @@ function emitProgram(program, runtimeVar = '__runtime') {
 
   const inner = '    ';
   out.push(`(function(${runtimeVar}) {`);
-  out.push(`  const { argv, atol, print, range, rangeFromTo, len, b64encode, b64decode, axialForce, radialForce, compute, progress = function(){} } = ${runtimeVar};`);
+  out.push(`  const { argv, atol, print, range, rangeFromTo, len, b64encode, b64decode, hasMethod, requireTrait, axialForce, radialForce, compute, progress = function(){} } = ${runtimeVar};`);
   out.push(`  return function(__argv) {`);
   out.push('');
 

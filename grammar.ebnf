@@ -2,7 +2,7 @@
   Minimal grammar for the Mojo subset used by ivi_standalone.mojo.
   Matches the parser in parser.js and AST in ast.d.ts.
 
-  Tokens: ID, NUMBER, STRING, keywords (struct, fn, def, var, if, else, while,
+  Tokens: ID, NUMBER, STRING, keywords (trait, struct, fn, def, var, if, else, while,
   for, in, return, and, or, not, True, False, Self, None, Bool, Int, List,
   Copyable, Movable, continue, pass, mut, out, inout, deinit);
   symbols: ( ) [ ] : , . ^ * ** // = == != < <= > >= + - % -> ;
@@ -11,9 +11,14 @@
   Rules use token names in UPPER for terminals; lowercase for nonterminals.
 *)
 
-program         = { struct | function } ;
+program         = { trait_def | struct | function } ;
 
-struct          = "struct" ID [ "(" trait { "," trait } ")" ] ":" INDENT struct_body DEDENT ;
+trait_def       = "trait" ID [ "(" trait_ref { "," trait_ref } ")" ] ":" INDENT trait_body DEDENT ;
+trait_ref       = ID ;
+trait_body      = { trait_method } ;
+trait_method    = "fn" ID "(" param_list ")" [ "->" type ] ":" block ;
+
+struct          = "struct" ID [ "(" trait_ref { "," trait_ref } ")" ] ":" INDENT struct_body DEDENT ;
 trait           = ID ;
 struct_body     = { field | method } ;
 field           = "var" ID [ ":" type ] [ "=" expression ] ;

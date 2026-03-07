@@ -8,7 +8,7 @@ const KEYWORDS = new Set([
   'var', 'fn', 'def', 'struct', 'if', 'else', 'while', 'for', 'in', 'return',
   'and', 'or', 'not', 'True', 'False', 'Self', 'None', 'Bool', 'Int', 'List',
   'Copyable', 'Movable', 'continue', 'pass', 'mut', 'out', 'inout', 'deinit',
-  'comptime', 'ref', 'raise', 'try', 'except', 'raises', 'elif',
+  'comptime', 'ref', 'raise', 'try', 'except', 'raises', 'elif', 'trait',
 ]);
 
 /** Mojo/reserved keywords we do not support; tokenizer errors with line number if seen. */

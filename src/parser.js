@@ -56,7 +56,7 @@ class Parser {
   }
 
   parseProgram() {
-    const program = { type: T.Program, structs: [], functions: [], main: null };
+    const program = { type: T.Program, structs: [], traits: [], functions: [], main: null };
     this.skipNewlines();
     while (this.i < this.tokens.length && this.peek().type !== Tok.EOF) {
       if (this.is(Tok.DEDENT)) {
@@ -65,6 +65,10 @@ class Parser {
       }
       if (this.is(Tok.ID, 'from') || this.is(Tok.DOCSTRING)) {
         this.skipImportOrDocstring();
+        continue;
+      }
+      if (this.is(Tok.TRAIT)) {
+        program.traits.push(this.parseTrait());
         continue;
       }
       if (this.is(Tok.STRUCT)) {
@@ -79,11 +83,85 @@ class Parser {
       }
       if (this.is(Tok.ID)) {
         const t = this.peek();
-        throw new Error(`Expected 'struct', 'fn', or 'def' at line ${t.line || 1}, got '${t.value}'`);
+        throw new Error(`Expected 'struct', 'trait', 'fn', or 'def' at line ${t.line || 1}, got '${t.value}'`);
       }
       this.advance();
     }
     return program;
+  }
+
+  parseTrait() {
+    this.expect(Tok.TRAIT);
+    const name = this.expect(Tok.ID).value;
+    let parentTraits = [];
+    if (this.is(Tok.LPAREN)) {
+      this.advance();
+      parentTraits.push(this.expect(Tok.ID).value);
+      while (this.is(Tok.COMMA)) {
+        this.advance();
+        parentTraits.push(this.expect(Tok.ID).value);
+      }
+      this.expect(Tok.RPAREN);
+    }
+    this.expect(Tok.COLON);
+    this.skipNewlines();
+    if (this.is(Tok.INDENT)) this.advance();
+    const methods = [];
+    while (!this.is(Tok.DEDENT) && !this.is(Tok.EOF)) {
+      this.skipNewlines();
+      if (this.is(Tok.DEDENT)) break;
+      if (this.is(Tok.FN)) {
+        methods.push(this.parseTraitMethod());
+        continue;
+      }
+      break;
+    }
+    if (this.is(Tok.DEDENT)) this.advance();
+    return { type: T.Trait, name, parentTraits, methods };
+  }
+
+  parseTraitMethod() {
+    this.expect(Tok.FN);
+    const name = this.expect(Tok.ID).value;
+    this.expect(Tok.LPAREN);
+    const params = [];
+    while (!this.is(Tok.RPAREN)) {
+      this.skipNewlines();
+      if (this.is(Tok.INDENT)) this.advance();
+      if (!this.is(Tok.ID)) break;
+      const paramName = this.advance().value;
+      let type = null;
+      if (this.is(Tok.COLON)) {
+        this.advance();
+        type = this.parseType();
+      }
+      params.push({ name: paramName, type });
+      this.skipNewlines();
+      if (!this.is(Tok.RPAREN)) this.expect(Tok.COMMA);
+    }
+    this.skipNewlines();
+    if (this.is(Tok.DEDENT)) this.advance();
+    this.expect(Tok.RPAREN);
+    this.skipNewlines();
+    let returnType = null;
+    if (this.is(Tok.RARROW)) {
+      this.advance();
+      returnType = this.parseType();
+    }
+    this.skipNewlines();
+    if (this.is(Tok.INDENT)) this.advance();
+    this.expect(Tok.COLON);
+    this.skipNewlines();
+    let body = [];
+    if (this.is(Tok.INDENT)) {
+      this.advance();
+      body = this.parseBlock();
+      if (this.is(Tok.DEDENT)) this.advance();
+    } else {
+      const stmt = this.parseStatement();
+      if (stmt) body = [stmt];
+    }
+    return { type: T.TraitMethod, name, params, returnType, required: false, body };
   }
 
   skipImportOrDocstring() {
@@ -331,7 +409,7 @@ class Parser {
     while (!this.is(Tok.DEDENT) && !this.is(Tok.EOF)) {
       this.skipNewlines();
       if (this.is(Tok.DEDENT)) break;
-      if (this.is(Tok.FN) || this.is(Tok.DEF) || this.is(Tok.STRUCT)) break;
+      if (this.is(Tok.FN) || this.is(Tok.DEF) || this.is(Tok.STRUCT) || this.is(Tok.TRAIT)) break;
       const stmt = this.parseStatement();
       if (stmt) statements.push(stmt);
     }

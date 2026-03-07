@@ -10,8 +10,25 @@
 export interface Program {
   type: 'Program';
   structs: Struct[];
+  traits: Trait[];
   functions: Function[];
   main: Function | null;
+}
+
+export interface Trait {
+  type: 'Trait';
+  name: string;
+  parentTraits: string[];
+  methods: TraitMethod[];
+}
+
+export interface TraitMethod {
+  type: 'TraitMethod';
+  name: string;
+  params: Param[];
+  returnType: Type | null;
+  required: boolean;  // reserved; always false (trait methods have a body, e.g. pass)
+  body: Statement[] | null;
 }
 
 export interface Struct {
