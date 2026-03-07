@@ -55,11 +55,6 @@ class Parser {
     while (this.is(Tok.NEWLINE)) this.advance();
   }
 
-  /** Skip NEWLINE and DEDENT (e.g. after a statement where we want to skip past a block end). */
-  skipNewlinesAndDedents() {
-    while (this.is(Tok.NEWLINE) || this.is(Tok.DEDENT)) this.advance();
-  }
-
   parseProgram() {
     const program = { type: T.Program, structs: [], functions: [], main: null };
     this.skipNewlines();

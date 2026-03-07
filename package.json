@@ -6,14 +6,20 @@
   "scripts": {
     "build": "node build.js --minify",
     "build:dev": "node build.js",
-    "test": "node test/run-tests.js"
+    "test": "node test/run-tests.js && node test/tokenizer-test.js && node test/runtime-test.js",
+    "coverage": "c8 --reporter=text --include='src/**/*.js' --exclude='src/run.js' node test/run-tests.js"
   },
-  "keywords": ["mojo", "interpreter", "transpiler"],
+  "keywords": [
+    "mojo",
+    "interpreter",
+    "transpiler"
+  ],
   "license": "MIT",
   "engines": {
     "node": ">=18"
   },
   "devDependencies": {
+    "c8": "^11.0.0",
     "esbuild": "^0.24.0"
   }
 }
