@@ -31,7 +31,7 @@ block           = INDENT { statement } DEDENT
                 | statement ;
 
 statement       = "var" ID [ ":" type ] [ "=" expression ]
-                | "if" expression ":" block [ "else" ":" block ]
+                | "if" expression ":" block { "elif" expression ":" block } [ "else" ":" block ]
                 | "while" expression ":" block
                 | "for" ID "in" expression ":" block
                 | "return" [ expression ]

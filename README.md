@@ -27,7 +27,7 @@ node run.js web/ivi_standalone.mojo 3127
 ## Supported Mojo subset
 
 - **Top-level:** `struct Name(Traits):` (fields, `__init__`, methods), `fn name(...):`, `def main():`
-- **Statements:** `var x = ...`, `x = ...`, `x += ...`, `if`/`else`, `while`, `for x in range(n):`, `return`, `continue`, `pass`
+- **Statements:** `var x = ...`, `x = ...`, `x += ...`, `if`/`elif`/`else`, `while`, `for x in range(n):`, `return`, `continue`, `pass`, `raise`, `try`/`except`
 - **Expressions:** literals, `+` `-` `*` `//` `%`, `==` `!=` `<` `<=` `>` `>=`, `and`/`or`/`not`, `len()`, `range(n)` / `range(a,b)`, `List[Int]()`, struct construction, `.copy()`, `.append()`, method calls (`s.method()`)
 - **Runtime:** `argv()`, `print(...)`, `atol(s)`, `b64encode(s)`, `b64decode(s)` ([std.base64](https://docs.modular.com/mojo/std/base64/base64/) – base64 only)
 

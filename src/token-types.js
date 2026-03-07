@@ -42,6 +42,7 @@ const Tok = Object.freeze({
   DEF: 'Df',
   STRUCT: 'Su',
   IF: 'If',
+  ELIF: 'Ef',
   ELSE: 'El',
   WHILE: 'Wh',
   FOR: 'Fr',
@@ -66,6 +67,10 @@ const Tok = Object.freeze({
   DEINIT: 'Di',
   COMPTIME: 'Ct',
   REF: 'Rf',
+  RAISE: 'Ri',
+  TRY: 'Ty',
+  EXCEPT: 'Ec',
+  RAISES: 'Rz',
 });
 
 /** Token type -> operator string for Binary/Unary nodes (eq, ne, +, -, //, etc.). */
@@ -79,6 +84,7 @@ const OP_FROM_TYPE = Object.freeze({
   [Tok.PLUS]: '+',
   [Tok.MINUS]: '-',
   [Tok.STAR]: '*',
+  [Tok.SLASH]: '/',
   [Tok.SLASHSLASH]: '//',
   [Tok.PERCENT]: '%',
   [Tok.AND]: 'and',

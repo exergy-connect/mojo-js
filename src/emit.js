@@ -172,6 +172,12 @@ function emitStatement(stmt, out, structNames, indent) {
     out.push(`${i}if (${emitExpr(stmt.cond, structNames)}) {`);
     for (const s of stmt.then) emitStatement(s, out, structNames, indent + 2);
     out.push(`${i}}`);
+    const elifs = stmt.elifs || [];
+    for (const branch of elifs) {
+      out.push(`${i}else if (${emitExpr(branch.cond, structNames)}) {`);
+      for (const s of branch.body) emitStatement(s, out, structNames, indent + 2);
+      out.push(`${i}}`);
+    }
     if (stmt.else && stmt.else.length > 0) {
       out.push(`${i}else {`);
       for (const s of stmt.else) emitStatement(s, out, structNames, indent + 2);
@@ -207,6 +213,19 @@ function emitStatement(stmt, out, structNames, indent) {
     return;
   }
   if (stmt.type === T.Pass) return;
+  if (stmt.type === T.Raise) {
+    out.push(`${i}throw ${emitExpr(stmt.value, structNames)};`);
+    return;
+  }
+  if (stmt.type === T.TryExcept) {
+    out.push(`${i}try {`);
+    for (const s of stmt.tryBody) emitStatement(s, out, structNames, indent + 2);
+    const catchVar = stmt.exceptVar || 'e';
+    out.push(`${i}} catch (${catchVar}) {`);
+    for (const s of stmt.exceptBody) emitStatement(s, out, structNames, indent + 2);
+    out.push(`${i}}`);
+    return;
+  }
   if (stmt.type === T.ExprStatement) {
     const e = stmt.expr;
     if (e.type === T.Call && e.callee.type === T.Member && e.callee.object.type === T.Id) {
@@ -257,6 +276,10 @@ function emitExpr(e, structNames, selfVar) {
     const args = e.args.map((a) => emitExpr(a, structNames, selfVar));
     const allArgs = [...typeArgs, ...args];
     if (callee.type === T.Id) {
+      if (callee.name === 'Error') {
+        const args = e.args.map((a) => emitExpr(a, structNames, selfVar));
+        return `new Error(${args.length ? args.join(', ') : ''})`;
+      }
       if (callee.name === 'range') {
         if (allArgs.length === 1) return `range(${allArgs[0]})`;
         if (allArgs.length === 2) return `rangeFromTo(${allArgs[0]}, ${allArgs[1]})`;

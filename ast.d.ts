@@ -42,6 +42,7 @@ export interface Function {
   returnType: Type | null;
   body: Statement[];
   isDef: boolean;
+  raises?: boolean;
 }
 
 export interface Param {
@@ -69,9 +70,23 @@ export type Statement =
   | For
   | Return
   | Assign
+  | Raise
+  | TryExcept
   | ExprStatement
   | Continue
   | Pass;
+
+export interface Raise {
+  type: 'Raise';
+  value: Expression;
+}
+
+export interface TryExcept {
+  type: 'TryExcept';
+  tryBody: Statement[];
+  exceptVar: string | null;
+  exceptBody: Statement[];
+}
 
 export interface VarDecl {
   type: 'VarDecl';
@@ -80,10 +95,16 @@ export interface VarDecl {
   value: Expression | null;
 }
 
+export interface IfElifBranch {
+  cond: Expression;
+  body: Statement[];
+}
+
 export interface If {
   type: 'If';
   cond: Expression;
   then: Statement[];
+  elifs: IfElifBranch[];
   else: Statement[];
 }
 

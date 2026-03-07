@@ -8,12 +8,12 @@ const KEYWORDS = new Set([
   'var', 'fn', 'def', 'struct', 'if', 'else', 'while', 'for', 'in', 'return',
   'and', 'or', 'not', 'True', 'False', 'Self', 'None', 'Bool', 'Int', 'List',
   'Copyable', 'Movable', 'continue', 'pass', 'mut', 'out', 'inout', 'deinit',
-  'comptime', 'ref',
+  'comptime', 'ref', 'raise', 'try', 'except', 'raises', 'elif',
 ]);
 
 /** Mojo/reserved keywords we do not support; tokenizer errors with line number if seen. */
 const UNSUPPORTED_KEYWORDS = new Set([
-  'async', 'await', 'raise', 'with', 'try', 'except', 'finally',
+  'async', 'await', 'with', 'finally',
   'match', 'class', 'lambda', 'yield', 'global', 'nonlocal', 'del', 'assert',
 ]);
 

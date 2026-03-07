@@ -7,6 +7,16 @@ const T = require('./ast-types.js');
 const Tok = require('./token-types.js');
 const { OP_FROM_TYPE } = require('./token-types.js');
 
+/** Token types accepted as a primary expression (parsed as Id). */
+const PRIMARY_AS_ID = new Set([
+  Tok.ID, Tok.VAR, Tok.OUT, Tok.IF, Tok.FOR, Tok.IN, Tok.ELSE, Tok.ELIF, Tok.REF,
+]);
+
+/** Token types that start a statement (parseStatement returns null so block parser handles them). */
+const STATEMENT_START = new Set([
+  Tok.IF, Tok.WHILE, Tok.FOR, Tok.RETURN, Tok.VAR, Tok.ELSE, Tok.ELIF, Tok.TRY, Tok.RAISE,
+]);
+
 class Parser {
   constructor(source) {
     this.tokens = tokenize(source);
@@ -27,6 +37,10 @@ class Parser {
     const t = this.peek();
     if (value !== undefined) return t.type === type && t.value === value;
     return t.type === type;
+  }
+
+  isOneOf(types) {
+    return types.has(this.peek().type);
   }
 
   expect(type, value) {
@@ -214,6 +228,9 @@ class Parser {
     this.skipNewlines();
     if (this.is(Tok.DEDENT)) this.advance();
     this.expect(Tok.RPAREN);
+    this.skipNewlines();
+    if (this.is(Tok.RAISES)) this.advance();
+    this.skipNewlines();
     let returnType = null;
     if (this.is(Tok.RARROW)) {
       this.advance();
@@ -287,6 +304,13 @@ class Parser {
     this.skipNewlines();
     if (this.is(Tok.DEDENT)) this.advance();
     this.expect(Tok.RPAREN);
+    this.skipNewlines();
+    let raises = false;
+    if (this.is(Tok.RAISES)) {
+      this.advance();
+      raises = true;
+    }
+    this.skipNewlines();
     let returnType = null;
     if (this.is(Tok.RARROW)) {
       this.advance();
@@ -304,7 +328,7 @@ class Parser {
     } else {
       body = this.parseBlock();
     }
-    return { type: T.Function, name, params, returnType, body, isDef, typeParams };
+    return { type: T.Function, name, params, returnType, body, isDef, typeParams, raises };
   }
 
   parseBlock() {
@@ -374,9 +398,30 @@ class Parser {
       } else {
         thenBlock = [this.parseStatement()].filter(Boolean);
       }
+      const elifs = [];
       let elseBlock = [];
       for (;;) {
         this.skipNewlines();
+        if (this.is(Tok.ELIF)) {
+          this.advance();
+          this.skipNewlines();
+          if (this.is(Tok.INDENT)) this.advance();
+          const elifCond = this.parseExpression();
+          this.skipNewlines();
+          if (this.is(Tok.INDENT)) this.advance();
+          this.expect(Tok.COLON);
+          this.skipNewlines();
+          let elifBody;
+          if (this.is(Tok.INDENT)) {
+            this.advance();
+            elifBody = this.parseBlock();
+            if (this.is(Tok.DEDENT)) this.advance();
+          } else {
+            elifBody = this.parseBlock();
+          }
+          elifs.push({ cond: elifCond, body: elifBody });
+          continue;
+        }
         if (!this.is(Tok.ELSE)) break;
         this.advance();
         if (this.is(Tok.COLON)) this.advance();
@@ -390,8 +435,9 @@ class Parser {
         } else {
           elseBlock = this.parseBlock();
         }
+        break;
       }
-      return { type: T.If, cond, then: thenBlock, else: elseBlock };
+      return { type: T.If, cond, then: thenBlock, elifs, else: elseBlock };
     }
     if (this.is(Tok.WHILE)) {
       this.advance();
@@ -457,9 +503,53 @@ class Parser {
       this.skipNewlines();
       return { type: T.Pass };
     }
+    if (this.is(Tok.RAISE)) {
+      this.advance();
+      this.skipNewlines();
+      if (this.is(Tok.INDENT)) this.advance();
+      const value = this.parseExpression();
+      this.skipNewlines();
+      return { type: T.Raise, value };
+    }
+    if (this.is(Tok.TRY)) {
+      this.advance();
+      this.skipNewlines();
+      if (this.is(Tok.INDENT)) this.advance();
+      this.expect(Tok.COLON);
+      this.skipNewlines();
+      let tryBody;
+      if (this.is(Tok.INDENT)) {
+        this.advance();
+        tryBody = this.parseBlock();
+        if (this.is(Tok.DEDENT)) this.advance();
+      } else {
+        tryBody = this.parseBlock();
+      }
+      this.skipNewlines();
+      this.expect(Tok.EXCEPT);
+      this.skipNewlines();
+      if (this.is(Tok.INDENT)) this.advance();
+      let exceptVar = null;
+      if (this.is(Tok.ID)) {
+        exceptVar = this.advance().value;
+        this.skipNewlines();
+      }
+      if (this.is(Tok.INDENT)) this.advance();
+      this.expect(Tok.COLON);
+      this.skipNewlines();
+      let exceptBody;
+      if (this.is(Tok.INDENT)) {
+        this.advance();
+        exceptBody = this.parseBlock();
+        if (this.is(Tok.DEDENT)) this.advance();
+      } else {
+        exceptBody = this.parseBlock();
+      }
+      return { type: T.TryExcept, tryBody, exceptVar, exceptBody };
+    }
     this.skipNewlines();
     if (this.is(Tok.INDENT)) this.advance();
-    if (this.is(Tok.IF) || this.is(Tok.WHILE) || this.is(Tok.FOR) || this.is(Tok.RETURN) || this.is(Tok.VAR) || this.is(Tok.ELSE)) return null;
+    if (this.isOneOf(STATEMENT_START)) return null;
     const expr = this.parseExpression();
     if (this.is(Tok.PLUSASSIGN)) {
       this.advance();
@@ -535,7 +625,7 @@ class Parser {
 
   parseMul() {
     let left = this.parseUnary();
-    while (this.is(Tok.STAR) || this.is(Tok.SLASHSLASH) || this.is(Tok.PERCENT)) {
+    while (this.is(Tok.STAR) || this.is(Tok.SLASH) || this.is(Tok.SLASHSLASH) || this.is(Tok.PERCENT)) {
       const op = OP_FROM_TYPE[this.advance().type];
       left = { type: T.Binary, op, left, right: this.parseUnary() };
     }
@@ -665,8 +755,7 @@ class Parser {
       this.expect(Tok.RBRACK);
       return { type: T.ListLiteral, elements };
     }
-    if (this.is(Tok.ID) || this.is(Tok.VAR) || this.is(Tok.OUT) || this.is(Tok.IF) ||
-        this.is(Tok.FOR) || this.is(Tok.IN) || this.is(Tok.ELSE) || this.is(Tok.REF)) {
+    if (this.isOneOf(PRIMARY_AS_ID)) {
       const t = this.advance();
       return { type: T.Id, name: t.value };
     }

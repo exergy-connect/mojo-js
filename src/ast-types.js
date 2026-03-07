@@ -14,6 +14,8 @@ const AST = Object.freeze({
   Continue: 'Cn',
   Pass: 'Ps',
   Assign: 'As',
+  Raise: 'Ra',
+  TryExcept: 'Te',
   ExprStatement: 'Ex',
   Binary: 'Bn',
   Unary: 'Un',
