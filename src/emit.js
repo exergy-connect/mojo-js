@@ -48,6 +48,8 @@ function emitStruct(struct, out, structNames, baseIndent) {
     return p.length > 0 && !m.params.some((x) => x.name === 'take');
   });
   const copyInit = struct.methods.find((m) => m.name === '__copyinit__');
+  const copyableTrait = (struct.traits || []).some((t) => t === 'Copyable' || t === 'ImplicitlyCopyable');
+  const hasCopy = copyInit || copyableTrait;
 
   out.push(`${ind}function ${name}(...args) {`);
   out.push(`${ind}  const self = {};`);
@@ -60,7 +62,7 @@ function emitStruct(struct, out, structNames, baseIndent) {
       emitStatementForSelf(stmt, out, structNames, 'self', ind.length + 2);
     }
   }
-  if (copyInit) {
+  if (hasCopy) {
     out.push(`${ind}  self.copy = function() { return ${name}_copy(self); };`);
   }
   for (const m of struct.methods) {
@@ -74,7 +76,7 @@ function emitStruct(struct, out, structNames, baseIndent) {
   }
   out.push(`${ind}  return self;`);
   out.push(`${ind}}`);
-  if (copyInit) {
+  if (hasCopy) {
     out.push(`${ind}function ${name}_copy(o) { return {`);
     for (const f of struct.fields) {
       if (f.type && f.type.kind === T.List) {

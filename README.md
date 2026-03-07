@@ -15,7 +15,7 @@ node run.js web/example.mojo 42
 node run.js web/ivi_standalone.mojo 3127
 ```
 
-**Tests:** `npm test` runs the suite (47 construct tests under `test/constructs/`).
+**Tests:** `npm test` runs the suite (construct, tokenizer, and runtime tests).
 
 ## What it does
 
@@ -27,6 +27,7 @@ node run.js web/ivi_standalone.mojo 3127
 ## Supported Mojo subset
 
 - **Top-level:** `struct Name(Traits):` (fields, `__init__`, methods), `fn name(...):`, `def main():`
+- **Structs** (see [Mojo structs manual](https://docs.modular.com/mojo/manual/structs/)): `struct Name:` or `struct Name(Copyable):` / `struct Name(Movable):`; fields as `var name: Type`; constructor `fn __init__(out self, ...):` or `fn __init__(inout self: Self, ...):`; optional `fn __copyinit__(out self, copy: Self):`; instance methods with `self` (and `mut self`); `Struct(args...)` construction and `instance.copy()` when Copyable (trait or `__copyinit__`).
 - **Statements:** `var x = ...`, `x = ...`, `x += ...`, `if`/`elif`/`else`, `while`, `for x in range(n):`, `return`, `continue`, `pass`, `raise`, `try`/`except`
 - **Expressions:** literals, `+` `-` `*` `//` `%`, `==` `!=` `<` `<=` `>` `>=`, `and`/`or`/`not`, `len()`, `range(n)` / `range(a,b)`, `List[Int]()`, struct construction, `.copy()`, `.append()`, method calls (`s.method()`)
 - **Runtime:** `argv()`, `print(...)`, `atol(s)`, `b64encode(s)`, `b64decode(s)` ([std.base64](https://docs.modular.com/mojo/std/base64/base64/) – base64 only)
@@ -50,6 +51,16 @@ Opens `web/index.html` in a browser to run Mojo from the textarea. Use `?mojo=<U
 **CI (GitHub Actions):**
 - **`minify.yml`** – On push when `src/`, `web/entry.js`, or `build.js` change: install, `npm run build`, commit minified bundle.
 - **`test.yml`** – On push/PR when `src/` or `test/` change: install, `npm test`.
+
+## Workflow: adding full support for a language feature
+
+When adding or completing support for a Mojo language feature (e.g. structs), use this workflow:
+
+1. **Use the official manual** – Start from the relevant [Modular Mojo docs](https://docs.modular.com/mojo/) (e.g. [Structs](https://docs.modular.com/mojo/manual/structs/)) to define the target behavior and syntax.
+2. **Audit current support** – In this repo: parser (`src/parser.js`), AST (`ast.d.ts`, `src/ast-types.js`), emitter (`src/emit.js`), and existing tests under `test/constructs/` and `grammar.ebnf`. Note what already works and what is missing.
+3. **Implement gaps** – Add or adjust tokens/keywords, parser rules, AST shapes, and emit logic so behavior matches the manual (e.g. Copyable trait generating `.copy()` even without `__copyinit__`).
+4. **Add a manual-aligned test** – Add a `test/constructs/<feature>_*.mojo` file that mirrors an example from the manual (e.g. `struct_mypair.mojo` for the MyPair struct), and ensure `npm test` passes.
+5. **Update the README** – In “Supported Mojo subset”, add or update a bullet that references the manual and briefly lists what is supported (syntax, traits, special methods, etc.).
 
 ## Status
 
