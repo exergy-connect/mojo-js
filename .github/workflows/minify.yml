@@ -13,8 +13,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -28,11 +26,3 @@ jobs:
 
       - name: Build from source (minify)
         run: npm run build
-
-      - name: Commit minified bundle under web/
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add web/mojo-js.min.js
-          git diff --staged --quiet || git commit -m "Build: update web/mojo-js.min.js"
-          git push
