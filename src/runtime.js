@@ -63,7 +63,10 @@ function b64encode(s) {
   if (typeof Buffer !== 'undefined') {
     return Buffer.from(String(s), 'utf8').toString('base64');
   }
-  return btoa(unescape(encodeURIComponent(String(s))));
+  const bytes = new TextEncoder().encode(String(s));
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
 }
 
 /**
@@ -75,7 +78,9 @@ function b64decode(s) {
   if (typeof Buffer !== 'undefined') {
     return Buffer.from(String(s), 'base64').toString('utf8');
   }
-  return decodeURIComponent(escape(atob(String(s))));
+  const binary = atob(String(s));
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  return new TextDecoder('utf-8').decode(bytes);
 }
 
 module.exports = {

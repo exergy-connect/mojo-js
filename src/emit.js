@@ -10,7 +10,7 @@ function emitProgram(program, runtimeVar = '__runtime') {
 
   const inner = '    ';
   out.push(`(function(${runtimeVar}) {`);
-  out.push(`  const { argv, atol, print, range, rangeFromTo, len, b64encode, b64decode, hasMethod, requireTrait, axialForce, radialForce, compute, progress = function(){} } = ${runtimeVar};`);
+  out.push(`  const { argv, atol, print, range, rangeFromTo, len, b64encode, b64decode, hasMethod, requireTrait, compute, progress = function(){} } = ${runtimeVar};`);
   out.push(`  return function(__argv) {`);
   out.push('');
 
@@ -292,8 +292,6 @@ function emitExpr(e, structNames, selfVar) {
       if (callee.name === 'print') return `print(...[${allArgs.join(', ')}])`;
       if (callee.name === 'b64encode') return allArgs.length >= 1 ? `b64encode(${allArgs[0]})` : 'b64encode("")';
       if (callee.name === 'b64decode') return allArgs.length >= 1 ? `b64decode(${allArgs[0]})` : 'b64decode("")';
-      if (callee.name === 'axialForce') return `(axialForce && axialForce(${allArgs.join(', ')}))`;
-      if (callee.name === 'radialForce') return `(radialForce && radialForce(${allArgs.join(', ')}))`;
       if (structNames.has(callee.name)) {
         return `${callee.name}(...([${allArgs.join(', ')}]))`;
       }
