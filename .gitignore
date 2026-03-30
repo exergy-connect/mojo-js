@@ -1,6 +1,5 @@
 node_modules/
 dist/
-web/mojo-js.min.js
 coverage/
 *.log
 .DS_Store
