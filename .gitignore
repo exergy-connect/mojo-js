@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# Built by `npm run build`; CI force-adds with `git add -f`
+web/mojo-js.min.js
 coverage/
 *.log
 .DS_Store
