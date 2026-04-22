@@ -285,13 +285,45 @@
         div.textContent = s;
         return div.innerHTML;
       }
+      function trimUrlSuffix(url) {
+        var trailing = '';
+        while (/[.,!?;:]$/.test(url)) {
+          trailing = url.slice(-1) + trailing;
+          url = url.slice(0, -1);
+        }
+        while (url.endsWith(')')) {
+          var opens = (url.match(/\(/g) || []).length;
+          var closes = (url.match(/\)/g) || []).length;
+          if (closes <= opens) { break; }
+          trailing = ')' + trailing;
+          url = url.slice(0, -1);
+        }
+        return { url: url, trailing: trailing };
+      }
+      function linkifyLine(line) {
+        var urlRe = /(https?:\/\/[^\s<>"']+)/g;
+        var out = '';
+        var last = 0;
+        var match;
+        while ((match = urlRe.exec(line)) !== null) {
+          var start = match.index;
+          var rawUrl = match[0];
+          var bits = trimUrlSuffix(rawUrl);
+          out += escapeHtml(line.slice(last, start));
+          out += '<a href="' + escapeHtml(bits.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(bits.url) + '</a>';
+          out += escapeHtml(bits.trailing);
+          last = start + rawUrl.length;
+        }
+        out += escapeHtml(line.slice(last));
+        return out;
+      }
       function setOutputHeatMap(text) {
         var lines = (text || '').split('\n');
         if (lines.length === 0) { lines = ['']; }
         var total = lines.length;
         output.innerHTML = lines.map(function (line, i) {
           var t = total > 1 ? i / (total - 1) : 0;
-          return '<span class="heat-line" style="--t: ' + t + '">' + escapeHtml(line) + '</span>';
+          return '<span class="heat-line" style="--t: ' + t + '">' + linkifyLine(line) + '</span>';
         }).join('\n');
         output.classList.toggle('empty', !text || text.trim() === '');
       }
