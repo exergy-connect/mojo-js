@@ -326,12 +326,43 @@
         }
         console.log = log;
       }
+      function decodeQueryComponent(raw) {
+        try {
+          return decodeURIComponent(raw);
+        } catch (_) {
+          return raw;
+        }
+      }
       function getQueryParam(name) {
         var m = (window.location.search || '').match(new RegExp('[?&]' + name + '=([^&]*)'));
-        return m ? decodeURIComponent(m[1].replace(/\+/g, ' ')) : '';
+        return m ? decodeQueryComponent(m[1]) : '';
+      }
+      function decodeDataUri(uri) {
+        var m = String(uri).match(/^data:([^,]*),(.*)$/i);
+        if (!m) throw new Error('Invalid data URI');
+        var meta = m[1] || '';
+        var data = m[2] || '';
+        if (/;base64/i.test(meta)) {
+          var binary = atob(data);
+          var bytes = new Uint8Array(binary.length);
+          for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          return new TextDecoder('utf-8').decode(bytes);
+        }
+        return decodeQueryComponent(data);
       }
       function loadMojoFromUrl(url) {
         if (!url) return;
+        if (/^data:/i.test(url)) {
+          try {
+            source.value = decodeDataUri(url);
+            sampleSelect.value = '';
+            argvInput.value = argvInput.placeholder || 'program.mojo';
+            setStatus('Loaded: data URI', false);
+          } catch (e) {
+            setStatus('Failed to load data URI: ' + (e.message || e), false);
+          }
+          return;
+        }
         setStatus('Loading from URL...', false);
         fetch(url)
           .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
