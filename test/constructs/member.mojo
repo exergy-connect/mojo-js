@@ -1,7 +1,7 @@
 struct S:
     var x: Int
 
-    fn __init__(inout self: Self, x: Int):
+    def __init__(mut self: Self, x: Int):
         self.x = x
 
 def main():

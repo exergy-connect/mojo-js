@@ -1,11 +1,11 @@
 # Parameterized compilation (compile-time loop), per Modular docs example
 # https://docs.modular.com/mojo/tools/notebooks/#example-parameterized-compilation
 
-fn repeat[count: Int](msg: String):
+def repeat[count: Int](msg: String):
     comptime for i in range(count):
         print(msg)
 
-fn threehello():
+def threehello():
     repeat[3]("Hello!")
 
 def main():

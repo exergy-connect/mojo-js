@@ -1,5 +1,5 @@
 /**
- * Emit JavaScript from Mojo AST. Supports simple Mojo subset (structs, fn, def, control flow, List, range, etc.).
+ * Emit JavaScript from Mojo AST. Supports simple Mojo subset (structs, def, control flow, List, range, etc.).
  */
 
 const T = require('./ast-types.js');
@@ -47,7 +47,7 @@ function emitStruct(struct, out, structNames, baseIndent) {
     const p = m.params.filter((x) => x.name !== 'self' && x.name !== 'copy' && x.name !== 'take');
     return p.length > 0 && !m.params.some((x) => x.name === 'take');
   });
-  const copyInit = struct.methods.find((m) => m.name === '__copyinit__');
+  const copyInit = inits.find((m) => m.params.some((x) => x.name === 'copy'));
   const copyableTrait = (struct.traits || []).some((t) => t === 'Copyable' || t === 'ImplicitlyCopyable');
   const hasCopy = copyInit || copyableTrait;
 
@@ -66,7 +66,7 @@ function emitStruct(struct, out, structNames, baseIndent) {
     out.push(`${ind}  self.copy = function() { return ${name}_copy(self); };`);
   }
   for (const m of struct.methods) {
-    if (m.name === '__init__' || m.name === '__copyinit__') continue;
+    if (m.name === '__init__') continue;
     const params = m.params.filter((p) => p.name !== 'self').map((p) => p.name);
     out.push(`${ind}  self.${m.name} = function(${params.join(', ')}) {`);
     for (const stmt of m.body) {

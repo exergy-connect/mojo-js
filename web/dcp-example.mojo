@@ -4,7 +4,7 @@
 
 from dcp import compute
 
-fn work_function(input: Int, arg1: Int, arg2: Int) -> Int:
+def work_function(input: Int, arg1: Int, arg2: Int) -> Int:
     progress()
     return input * arg1 * arg2
 
@@ -18,8 +18,8 @@ def main():
     var results = job.exec()
     print(results)
 
-fn accepted_callback():
+def accepted_callback():
     print("Job accepted. Awaiting results...")
 
-fn error_callback(err):
+def error_callback(err):
     print("Job error:", err)

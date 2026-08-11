@@ -2,14 +2,14 @@
 # Trait with required method, struct conforming to trait
 
 trait Quackable:
-    fn quack(self):
+    def quack(self):
         pass
 
 struct Duck(Copyable, Quackable):
-    fn __init__(out self):
+    def __init__(out self):
         pass
 
-    fn quack(self):
+    def quack(self):
         print("Quack")
 
 def main():

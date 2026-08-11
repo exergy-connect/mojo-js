@@ -117,6 +117,16 @@ function main() {
     assert(KEYWORDS.has('def'));
     assert(KEYWORDS.has('elif'));
     assert(!KEYWORDS.has('match'));
+    assert(!KEYWORDS.has('fn'));
+    assert(!KEYWORDS.has('inout'));
+  }) ? passed++ : failed++;
+
+  run('deprecated fn keyword raises', () => {
+    assert.throws(() => tokenize('def main():\n    fn'), /Unknown keyword.*fn/);
+  }) ? passed++ : failed++;
+
+  run('deprecated inout keyword raises', () => {
+    assert.throws(() => tokenize('def main():\n    inout'), /Unknown keyword.*inout/);
   }) ? passed++ : failed++;
 
   console.log('');

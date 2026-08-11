@@ -1,6 +1,6 @@
 # Exceptions demo: calculate_average raises on empty data, main uses try-except.
 
-fn calculate_average(temps: List[Float64]) raises -> Float64:
+def calculate_average(temps: List[Float64]) raises -> Float64:
     if len(temps) == 0:
         raise Error("No temperature data")
 

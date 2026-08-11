@@ -18,7 +18,7 @@ struct Branch(Copyable):
     var q_value: Int
     var carry_in: Int
 
-    fn __init__(out self, k: Int, p_history: List[Int], q_history: List[Int], p_value: Int, q_value: Int, carry_in: Int):
+    def __init__(out self, k: Int, p_history: List[Int], q_history: List[Int], p_value: Int, q_value: Int, carry_in: Int):
         self.k = k
         self.p_history = p_history.copy()
         self.q_history = q_history.copy()
@@ -26,7 +26,7 @@ struct Branch(Copyable):
         self.q_value = q_value
         self.carry_in = carry_in
 
-    fn __copyinit__(out self, copy: Self):
+    def __init__(out self, *, copy: Self):
         self.k = copy.k
         self.p_history = copy.p_history.copy()
         self.q_history = copy.q_history.copy()
@@ -42,7 +42,7 @@ struct Candidate(Copyable):
     var qk: Int
     var carry_out: Int
 
-    fn __init__(out self, pk: Int, qk: Int, carry_out: Int):
+    def __init__(out self, pk: Int, qk: Int, carry_out: Int):
         self.pk = pk
         self.qk = qk
         self.carry_out = carry_out
@@ -60,7 +60,7 @@ struct AlgorithmState(Movable):
     var found_p: Int
     var found_q: Int
 
-    fn __init__(out self, *, deinit take: Self):
+    def __init__(out self, *, deinit take: Self):
         self.n = take.n
         self.n_digits = take.n_digits^
         self.step = take.step
@@ -70,7 +70,7 @@ struct AlgorithmState(Movable):
         self.found_p = take.found_p
         self.found_q = take.found_q
 
-    fn __copyinit__(out self, copy: Self):
+    def __init__(out self, *, copy: Self):
         self.n = copy.n
         self.n_digits = copy.n_digits.copy()
         self.step = copy.step
@@ -80,7 +80,7 @@ struct AlgorithmState(Movable):
         self.found_p = copy.found_p
         self.found_q = copy.found_q
 
-    fn __init__(out self, n: Int):
+    def __init__(out self, n: Int):
         self.n = n
         self.n_digits = digits_lsd_first(n)
         self.step = 0
@@ -95,10 +95,10 @@ struct AlgorithmState(Movable):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-fn multiply_digits(a: Int, b: Int) -> Int:
+def multiply_digits(a: Int, b: Int) -> Int:
     return a * b
 
-fn digits_lsd_first(n: Int) -> List[Int]:
+def digits_lsd_first(n: Int) -> List[Int]:
     """Return digits of n from least significant to most (LSD first)."""
     var out = List[Int]()
     var x = n
@@ -110,7 +110,7 @@ fn digits_lsd_first(n: Int) -> List[Int]:
         x = x // 10
     return out^
 
-fn power10(exp: Int) -> Int:
+def power10(exp: Int) -> Int:
     var r: Int = 1
     for _ in range(exp):
         r = r * 10
@@ -119,7 +119,7 @@ fn power10(exp: Int) -> Int:
 # ---------------------------------------------------------------------------
 # IVI work function: from one branch at position k, return valid (pk, qk, carry_out)
 # ---------------------------------------------------------------------------
-fn ivi_candidates(
+def ivi_candidates(
     k: Int,
     p_history: List[Int],
     q_history: List[Int],
@@ -168,7 +168,7 @@ fn ivi_candidates(
 # ---------------------------------------------------------------------------
 # Expand one branch into next branches at current_k
 # ---------------------------------------------------------------------------
-fn expand_branch(
+def expand_branch(
     branch: Branch,
     current_k: Int,
     n_digits: List[Int],
@@ -198,7 +198,7 @@ fn expand_branch(
 # ---------------------------------------------------------------------------
 # One step of the algorithm (mutates state in place)
 # ---------------------------------------------------------------------------
-fn step(mut state: AlgorithmState) -> None:
+def step(mut state: AlgorithmState) -> None:
     if state.done:
         return
     var current_k = state.step + 1
@@ -239,7 +239,7 @@ fn step(mut state: AlgorithmState) -> None:
 # ---------------------------------------------------------------------------
 # Run until done
 # ---------------------------------------------------------------------------
-fn factorize(n: Int) -> AlgorithmState:
+def factorize(n: Int) -> AlgorithmState:
     """Run until done; state.success and state.found_p/found_q hold result."""
     var state = AlgorithmState(n)
     while not state.done:

@@ -38,7 +38,6 @@ const Tok = Object.freeze({
   SLASHSLASH: 'Sc',
   // Keywords (tokenizer emits these by uppercasing; we use short codes)
   VAR: 'Vr',
-  FN: 'Fn',
   DEF: 'Df',
   STRUCT: 'Su',
   IF: 'If',
@@ -63,7 +62,6 @@ const Tok = Object.freeze({
   PASS: 'Ps',
   MUT: 'Mu',
   OUT: 'Ou',
-  INOUT: 'Io',
   DEINIT: 'Di',
   COMPTIME: 'Ct',
   REF: 'Rf',

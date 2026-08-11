@@ -5,9 +5,9 @@
 const Tok = require('./token-types.js');
 
 const KEYWORDS = new Set([
-  'var', 'fn', 'def', 'struct', 'if', 'else', 'while', 'for', 'in', 'return',
+  'var', 'def', 'struct', 'if', 'else', 'while', 'for', 'in', 'return',
   'and', 'or', 'not', 'True', 'False', 'Self', 'None', 'Bool', 'Int', 'List',
-  'Copyable', 'Movable', 'continue', 'pass', 'mut', 'out', 'inout', 'deinit',
+  'Copyable', 'Movable', 'continue', 'pass', 'mut', 'out', 'deinit',
   'comptime', 'ref', 'raise', 'try', 'except', 'raises', 'elif', 'trait',
 ]);
 
@@ -15,6 +15,8 @@ const KEYWORDS = new Set([
 const UNSUPPORTED_KEYWORDS = new Set([
   'async', 'await', 'with', 'finally',
   'match', 'class', 'lambda', 'yield', 'global', 'nonlocal', 'del', 'assert',
+  // Deprecated Mojo syntax (removed in favor of def / mut)
+  'fn', 'inout',
 ]);
 
 function isKeyword(id) {

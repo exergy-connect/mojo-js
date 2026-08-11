@@ -75,7 +75,7 @@ class Parser {
         program.structs.push(this.parseStruct());
         continue;
       }
-      if (this.is(Tok.FN) || this.is(Tok.DEF)) {
+      if (this.is(Tok.DEF)) {
         const fn = this.parseFunction();
         if (fn.name === 'main') program.main = fn;
         else program.functions.push(fn);
@@ -83,7 +83,7 @@ class Parser {
       }
       if (this.is(Tok.ID)) {
         const t = this.peek();
-        throw new Error(`Expected 'struct', 'trait', 'fn', or 'def' at line ${t.line || 1}, got '${t.value}'`);
+        throw new Error(`Expected 'struct', 'trait', or 'def' at line ${t.line || 1}, got '${t.value}'`);
       }
       this.advance();
     }
@@ -110,7 +110,7 @@ class Parser {
     while (!this.is(Tok.DEDENT) && !this.is(Tok.EOF)) {
       this.skipNewlines();
       if (this.is(Tok.DEDENT)) break;
-      if (this.is(Tok.FN)) {
+      if (this.is(Tok.DEF)) {
         methods.push(this.parseTraitMethod());
         continue;
       }
@@ -121,8 +121,13 @@ class Parser {
   }
 
   parseTraitMethod() {
-    this.expect(Tok.FN);
+    this.expect(Tok.DEF);
     const name = this.expect(Tok.ID).value;
+    if (name === '__copyinit__' || name === '__moveinit__') {
+      throw new Error(
+        `'${name}' is removed; use __init__(out self, *, copy: Self) or __init__(out self, *, deinit take: Self)`
+      );
+    }
     this.expect(Tok.LPAREN);
     const params = [];
     while (!this.is(Tok.RPAREN)) {
@@ -212,7 +217,7 @@ class Parser {
         this.skipNewlines();
         continue;
       }
-      if (this.is(Tok.FN)) {
+      if (this.is(Tok.DEF)) {
         struct.methods.push(this.parseMethod());
         continue;
       }
@@ -242,8 +247,13 @@ class Parser {
   }
 
   parseMethod() {
-    this.expect(Tok.FN);
+    this.expect(Tok.DEF);
     const name = this.expect(Tok.ID).value;
+    if (name === '__copyinit__' || name === '__moveinit__') {
+      throw new Error(
+        `'${name}' is removed; use __init__(out self, *, copy: Self) or __init__(out self, *, deinit take: Self)`
+      );
+    }
     this.expect(Tok.LPAREN);
     const params = [];
     while (!this.is(Tok.RPAREN)) {
@@ -252,7 +262,7 @@ class Parser {
         if (this.is(Tok.COMMA)) this.advance();
         continue;
       }
-      if (this.is(Tok.DEINIT)) {
+      if (this.is(Tok.DEINIT) || this.is(Tok.VAR)) {
         this.advance();
         const paramName = this.expect(Tok.ID).value;
         this.expect(Tok.COLON);
@@ -260,7 +270,7 @@ class Parser {
         if (!this.is(Tok.RPAREN)) this.expect(Tok.COMMA);
         continue;
       }
-      if (this.is(Tok.OUT) || this.is(Tok.INOUT) || this.is(Tok.MUT)) {
+      if (this.is(Tok.OUT) || this.is(Tok.MUT)) {
         this.advance();
         this.skipNewlines();
         if (this.is(Tok.ID) && this.peek().value === 'self') {
@@ -273,6 +283,20 @@ class Parser {
           if (!this.is(Tok.RPAREN)) this.expect(Tok.COMMA);
           continue;
         }
+        // mut/out before a non-self parameter name
+        this.skipNewlines();
+        if (this.is(Tok.INDENT)) this.advance();
+        if (!this.is(Tok.ID)) break;
+        const paramName = this.advance().value;
+        let type = null;
+        if (this.is(Tok.COLON)) {
+          this.advance();
+          type = this.parseType();
+        }
+        params.push({ name: paramName, type });
+        this.skipNewlines();
+        if (!this.is(Tok.RPAREN)) this.expect(Tok.COMMA);
+        continue;
       }
       this.skipNewlines();
       if (this.is(Tok.INDENT)) this.advance();
@@ -325,8 +349,7 @@ class Parser {
   }
 
   parseFunction() {
-    const isDef = this.is(Tok.DEF);
-    this.advance();
+    this.expect(Tok.DEF);
     const name = this.expect(Tok.ID).value;
     let typeParams = [];
     if (this.is(Tok.LBRACK)) {
@@ -345,7 +368,7 @@ class Parser {
     this.expect(Tok.LPAREN);
     const params = [];
     while (!this.is(Tok.RPAREN)) {
-      if (this.is(Tok.OUT) || this.is(Tok.INOUT) || this.is(Tok.MUT)) {
+      if (this.is(Tok.OUT) || this.is(Tok.MUT)) {
         this.advance();
         this.skipNewlines();
         if (this.is(Tok.ID) && this.peek().value === 'self') {
@@ -354,6 +377,32 @@ class Parser {
           if (!this.is(Tok.RPAREN)) this.expect(Tok.COMMA);
           continue;
         }
+        // mut/out before a non-self parameter
+        this.skipNewlines();
+        if (this.is(Tok.INDENT)) this.advance();
+        if (!this.is(Tok.ID)) break;
+        const paramName = this.advance().value;
+        let type = null;
+        if (this.is(Tok.COLON)) {
+          this.advance();
+          type = this.parseType();
+        }
+        params.push({ name: paramName, type });
+        this.skipNewlines();
+        if (!this.is(Tok.RPAREN)) this.expect(Tok.COMMA);
+        continue;
+      }
+      if (this.is(Tok.DEINIT) || this.is(Tok.VAR)) {
+        this.advance();
+        const paramName = this.expect(Tok.ID).value;
+        let type = null;
+        if (this.is(Tok.COLON)) {
+          this.advance();
+          type = this.parseType();
+        }
+        params.push({ name: paramName, type });
+        if (!this.is(Tok.RPAREN)) this.expect(Tok.COMMA);
+        continue;
       }
       if (this.is(Tok.STAR)) {
         this.advance();
@@ -401,7 +450,7 @@ class Parser {
     } else {
       body = this.parseBlock();
     }
-    return { type: T.Function, name, params, returnType, body, isDef, typeParams, raises };
+    return { type: T.Function, name, params, returnType, body, isDef: true, typeParams, raises };
   }
 
   parseBlock() {
@@ -409,7 +458,7 @@ class Parser {
     while (!this.is(Tok.DEDENT) && !this.is(Tok.EOF)) {
       this.skipNewlines();
       if (this.is(Tok.DEDENT)) break;
-      if (this.is(Tok.FN) || this.is(Tok.DEF) || this.is(Tok.STRUCT) || this.is(Tok.TRAIT)) break;
+      if (this.is(Tok.DEF) || this.is(Tok.STRUCT) || this.is(Tok.TRAIT)) break;
       const stmt = this.parseStatement();
       if (stmt) statements.push(stmt);
     }
@@ -425,7 +474,7 @@ class Parser {
       this.skipNewlines();
       if (this.is(Tok.INDENT)) this.advance();
       let expr = null;
-      if (!this.is(Tok.VAR) && !this.is(Tok.IF) && !this.is(Tok.WHILE) && !this.is(Tok.FOR) && !this.is(Tok.DEF) && !this.is(Tok.FN) && !this.is(Tok.RETURN) && !this.is(Tok.ELSE) && !this.is(Tok.NEWLINE) && !this.is(Tok.DEDENT)) {
+      if (!this.is(Tok.VAR) && !this.is(Tok.IF) && !this.is(Tok.WHILE) && !this.is(Tok.FOR) && !this.is(Tok.DEF) && !this.is(Tok.RETURN) && !this.is(Tok.ELSE) && !this.is(Tok.NEWLINE) && !this.is(Tok.DEDENT)) {
         expr = this.parseExpression();
         if (this.is(Tok.HAT)) this.advance();
       }
