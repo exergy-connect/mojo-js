@@ -236,6 +236,11 @@
       <select id="sample-select">
         <option value="example.mojo">example.mojo</option>
         <option value="ivi_standalone.mojo">ivi_standalone.mojo</option>
+        <option value="risk/oob.mojo" data-features="risk">risk/oob.mojo</option>
+        <option value="risk/uaf.mojo" data-features="risk">risk/uaf.mojo</option>
+        <option value="risk/uninit.mojo" data-features="risk">risk/uninit.mojo</option>
+        <option value="risk/conditional.mojo" data-features="risk">risk/conditional.mojo</option>
+        <option value="risk/rotate.mojo" data-features="risk">risk/rotate.mojo</option>
         <option value="">— Custom —</option>
       </select>
     </div>
@@ -278,7 +283,11 @@
       var sampleSelect = document.getElementById('sample-select');
       var statusBar = document.getElementById('status-bar');
       var statusText = document.getElementById('status-text');
-      var defaultArgv = { 'example.mojo': 'example.mojo 42', 'ivi_standalone.mojo': 'ivi_standalone.mojo 3127' };
+      var defaultArgv = {
+        'example.mojo': 'example.mojo 42',
+        'ivi_standalone.mojo': 'ivi_standalone.mojo 3127',
+        'risk/rotate.mojo': 'risk/rotate.mojo 3'
+      };
 
       function escapeHtml(s) {
         var div = document.createElement('div');
@@ -332,8 +341,14 @@
         statusBar.classList.toggle('lift-off', !!liftOff);
         if (liftOff) setTimeout(function () { statusBar.classList.remove('lift-off'); }, 800);
       }
+      function featuresForSample() {
+        var opt = sampleSelect.options[sampleSelect.selectedIndex];
+        var raw = (opt && opt.getAttribute('data-features')) || '';
+        return raw ? raw.split(/\s*,\s*/).filter(Boolean) : [];
+      }
       function run() {
         var args = argvInput.value.trim() ? argvInput.value.trim().split(/\s+/) : [];
+        var features = featuresForSample();
         setOutputHeatMap('');
         setStatus('Igniting...', false);
         document.body.classList.add('running');
@@ -342,7 +357,7 @@
         console.log = function () { buffer.push(Array.prototype.join.call(arguments, ' ')); };
         try {
           if (typeof runMojo !== 'undefined') {
-            runMojo(source.value, args);
+            runMojo(source.value, args, features.length ? { features: features } : {});
             setOutputHeatMap(buffer.join('\n'));
             setStatus('LIFT OFF! 🔥', true);
             setTimeout(function () { document.body.classList.remove('running'); }, 500);
