@@ -8,19 +8,31 @@ Related discussion: [Modular Risk Effect proposal](https://forum.modular.com/t/p
 
 ## 1. Value of the experiment
 
+Risk almost always involves a **trade-off** (speed, density, API shape, or algorithmic clarity versus a proof the compiler already has). The goal is not to encourage residual risk, and not to pretend every site can be fully proven. The goal is to **leave that choice to the programmer**, but make it **explicit and enforceable**.
+
 Mojo often tracks unsafety by **naming convention**: `Pointer.unsafe_offset`, `List.unsafe_get`, and similar APIs bake caution into the identifier ([UnsafePointer](https://docs.modular.com/mojo/std/memory/unsafe_pointer/UnsafePointer/), List/Array docs). That keeps call sites greppable, but one name does two jobs:
 
 1. **Semantic operation** — what the call does (`offset`, `get`, `take`, `write`).
 2. **Safety acknowledgment** — accepting that some invariant is not established at this site.
 
-This POC separates those concerns:
+This POC separates those concerns so the trade-off is a first-class act:
 
 - Keep **semantic** API names.
 - Name the **specific invariant** that remains open (`OOB`, `UNINIT`, `UAF`, …).
 - Make **acknowledgment** an explicit lexical (or signature) act: `risk(OOB):`.
-- Allow **mitigation** on a path that never uses the risk-bearing operation (e.g. a bounds-checked specialization).
+- Allow **mitigation** when the programmer chooses the safe path instead (e.g. a bounds-checked specialization that never calls the risk-bearing API).
+- **Enforce** that calling a risk-introducing API is covered by acknowledgment (semantic error otherwise), with `--accept-risks` only as an explicit escape hatch.
 
-Binary `unsafe` is largely all-or-nothing. Named risks let one invariant be established (bounds) while another stays open (init or lifetime) at the same point—and make that residual risk greppable without `unsafe_` noise on every call.
+Binary `unsafe` is largely all-or-nothing. Named risks let one invariant be established (bounds) while another stays open (init or lifetime) at the same point—and make the residual trade-off greppable without `unsafe_` noise on every call.
+
+“Handling” an `OOB` risk is not a single language magic. The programmer can:
+
+1. **Mitigate** — establish bounds / avoid the unchecked API.
+2. **Acknowledge** — accept residual risk with `risk(...)` (what acknowledgment expresses).
+3. **Fail closed under a build option** — keep the same risk-introducing API, but have the compiler emit dynamic checks that **`raise`** when the invariant is still observable (§7).
+
+All three leave the trade-off in the programmer’s (or build’s) hands; acknowledgment and coverage checking keep residual risk explicit and enforceable.
+
 
 ### Introduction vs acknowledgment vs mitigation
 
@@ -29,6 +41,7 @@ Binary `unsafe` is largely all-or-nothing. Named risks let one invariant be esta
 | **Introduction / propagation** | Using an operation depends on an unproven invariant. Declared on the callee: `def get_unchecked(...) risk(OOB) -> Int:`. |
 | **Acknowledgment** | `risk(OOB):` — lexical scope where the programmer *accepts* that risk for covered calls. Does not create the risk. Signature `def f(...) risk(OOB):` acknowledges for calls inside `f` and propagates `OOB` to callers of `f`. |
 | **Mitigation / discharge** | Establish the invariant (or avoid the risk-bearing API) so the obligation does not remain on that path—e.g. bounds check then return without calling `get_unchecked`. |
+| **Exceptions build mode** | Same risk-introducing API; compiler/runtime inserts checks and `raise`s on violation when the invariant is dynamically observable (§7). |
 
 ## 2. Motivating vocabulary
 
@@ -118,7 +131,32 @@ The parser also accepts `risk(OOB if not BOUNDS_CHECK else NO_RISK):`; the demos
 
 Call sites use `risk(UNINIT):`. Risk tracks a **state transition** (initialized ↔ uninitialized), not only a fixed `unsafe_*` name.
 
-## 7. Other demos
+## 7. Build option: risks as raised exceptions
+
+A natural third dial on the trade-off is a **compiler/build option** (e.g. `--risks=exceptions`, or a safe/debug configuration): for operations annotated `risk(R)`, emit the **checking** form that raises on violation instead of the unchecked form that only requires acknowledgment.
+
+| Mode | Call to a `risk(OOB)` API |
+|---|---|
+| Default (residual risk) | Unchecked; must sit under `risk(OOB):` (or `--accept-risks`) |
+| Exceptions mode | Same call site; insert a dynamic check and `raise` on failure |
+
+`risk(...)` itself does **not** mean “raise on entry.” The option applies to **risk-introducing operations**, not to acknowledgment scopes. Acknowledgment remains “I accept residual risk” in fast builds; exceptions mode means “don’t leave it residual—fail closed when we can still see the invariant.”
+
+**Where it fits** — when the runtime still has checkable metadata:
+
+| Risk | Dynamic check (when metadata exists) |
+|---|---|
+| **`OOB`** | Index vs length → `Error` (as in `Buf.get` / `get[True]`) |
+| **`UNINIT`** | Slot init flag → `Error` (arena model) |
+| **`UAF`** | Handle liveness → `Error` (heap model) |
+
+Useful shapes: debug / sanitizer-like builds; a safe stdlib lowering of `risk(OOB)` APIs to checked+`raises`; optionally **per-risk** (only `OOB`→exceptions). This also ties risk to Mojo’s existing **`raises`** effect when the build chooses fail-closed.
+
+**Where it does not** — no recoverable metadata (raw address math without length/provenance); already-corrupt memory; treating acknowledgment blocks as automatic throws; performance paths whose whole point is residual risk in a fast build.
+
+This mode is part of the design space for mojo-js / Mojo discussion; it is not required for the acknowledgment POC to be useful, and is not implemented as a CLI flag yet.
+
+## 8. Other demos
 
 | File | Focus |
 |---|---|
@@ -130,20 +168,21 @@ Call sites use `risk(UNINIT):`. Risk tracks a **state transition** (initialized 
 
 Hooks: [`src/extensions/`](../src/extensions/) registry; risk pack under [`src/extensions/risk/`](../src/extensions/risk/).
 
-## 8. Questions being explored
+## 9. Questions being explored
 
 1. **Taxonomy** — What should count as a risk, and who defines the set?
 2. **Inference vs declaration** — Declare on APIs (as here), infer from bodies, or both?
 3. **Propagation** — How should risk flow through calls, generics, and higher-order code?
-4. **Discharge** — When does a check or proof clear an obligation, and how is that shown in the language?
+4. **Discharge** — When does a check or proof clear an obligation, and how is that shown versus an explicit residual-risk trade-off?
 5. **Comptime conditionality** — Can specializations expose different risk contracts (§5)?
 6. **Composition** — Is bitmask OR (`OOB | UNINIT`) the right algebra for simultaneous risks?
 7. **Other effects** — How should risk interact with `raises` and future effects?
-8. **Public contract** — Should signature `risk(...)` be part of a function’s API surface?
-9. **Tooling** — How should IDEs and auditors surface and review acknowledgment?
-10. **Surface syntax** — `@risk`, `with` / `using`, alternate spellings, finer `UNINIT` splits, leak-related risks, …
+8. **Exceptions build mode** — Should `--risks=exceptions` (or per-risk variants) lower introducing APIs to checked+`raises`, and when is metadata available (§7)?
+9. **Public contract** — Should signature `risk(...)` be part of a function’s API surface?
+10. **Tooling** — How should IDEs and auditors surface and review acknowledgment?
+11. **Surface syntax** — `@risk`, `with` / `using`, alternate spellings, finer `UNINIT` splits, leak-related risks, …
 
-## 9. Test plan (mojo-js)
+## 10. Test plan (mojo-js)
 
 - Fixtures under `test/extensions/risk/`
 - Feature off → `risk(...):` is not this form
