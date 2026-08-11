@@ -1,167 +1,151 @@
-# Proposal: Block-level `risk` (replacing `unsafe_` naming)
+# Proposal: Block-level `risk` for Explicit Safety Acknowledgment
 
-Experimental language feature for [mojo-js](../README.md), enabled with `--feature risk` or `parse(source, { features: ['risk'] })`.
+Experimental language-design POC for [mojo-js](../README.md). Enable with `--feature risk` or `parse(source, { features: ['risk'] })`.
 
-Implementation: [`src/extensions/risk/`](../src/extensions/risk/).
+Implementation: [`src/extensions/risk/`](../src/extensions/risk/). Demos: [`web/risk/`](../web/risk/). Tests: [`test/extensions/risk/`](../test/extensions/risk/).
 
-## 1. Motivation
+Related discussion: [Modular Risk Effect proposal](https://forum.modular.com/t/proposal-the-risk-effect-reducing-the-verbosity-of-unsafe-naming-convention/3382) and the [block-level acknowledgment comment](https://forum.modular.com/t/proposal-the-risk-effect-reducing-the-verbosity-of-unsafe-naming-convention/3382/4).
 
-Mojo today tracks unsafety largely by **naming convention**: identifiers such as `Pointer.unsafe_offset` and `List.unsafe_get` bake danger into the API surface. That keeps call sites greppable, but:
+## 1. Value of the experiment
 
-- Obscures algorithmic intent under repeated `unsafe_` prefixes.
-- Conflates **semantic** names (`offset`, `get`) with **safety** acknowledgment.
-- Does not say *which* invariant was verified (bounds vs init state vs lifetime).
+Mojo often tracks unsafety by **naming convention**: `Pointer.unsafe_offset`, `List.unsafe_get`, and similar APIs bake caution into the identifier ([UnsafePointer](https://docs.modular.com/mojo/std/memory/unsafe_pointer/UnsafePointer/), List/Array docs). That keeps call sites greppable, but one name does two jobs:
 
-This POC explores **block-level `risk(...)` scopes** as a successor to that practice: keep API names semantic, and move explicit, greppable acknowledgment to tight lexical blocks—aligned with the [Modular Risk Effect proposal](https://forum.modular.com/t/proposal-the-risk-effect-reducing-the-verbosity-of-unsafe-naming-convention/3382) and the [block-level comment](https://forum.modular.com/t/proposal-the-risk-effect-reducing-the-verbosity-of-unsafe-naming-convention/3382/4) arguing against signature pollution.
+1. **Semantic operation** — what the call does (`offset`, `get`, `take`, `write`).
+2. **Safety acknowledgment** — accepting that some invariant is not established at this site.
 
-## 2. Mojo `unsafe_` risk scope (what this replaces)
+This POC separates those concerns:
 
-| Semantic risk | What `unsafe_` / unsafe APIs acknowledge | Representative APIs |
+- Keep **semantic** API names.
+- Name the **specific invariant** that remains open (`OOB`, `UNINIT`, `UAF`, …).
+- Make **acknowledgment** an explicit lexical (or signature) act: `risk(OOB):`.
+- Allow **mitigation** on a path that never uses the risk-bearing operation (e.g. a bounds-checked specialization).
+
+Binary `unsafe` is largely all-or-nothing. Named risks let one invariant be established (bounds) while another stays open (init or lifetime) at the same point—and make that residual risk greppable without `unsafe_` noise on every call.
+
+### Introduction vs acknowledgment vs mitigation
+
+| Concept | Meaning in this design |
+|---|---|
+| **Introduction / propagation** | Using an operation depends on an unproven invariant. Declared on the callee: `def get_unchecked(...) risk(OOB) -> Int:`. |
+| **Acknowledgment** | `risk(OOB):` — lexical scope where the programmer *accepts* that risk for covered calls. Does not create the risk. Signature `def f(...) risk(OOB):` acknowledges for calls inside `f` and propagates `OOB` to callers of `f`. |
+| **Mitigation / discharge** | Establish the invariant (or avoid the risk-bearing API) so the obligation does not remain on that path—e.g. bounds check then return without calling `get_unchecked`. |
+
+## 2. Motivating vocabulary
+
+Familiar memory-safety shapes supply labels for the experiment (not a final Mojo taxonomy). Context: [CISA on memory safety](https://www.cisa.gov/news-events/news/urgent-need-memory-safety-software-products).
+
+| Risk | Invariant in question | Illustrative references |
 |---|---|---|
-| **`OOB`** | Access without a bounds proof | `List.unsafe_get` / `Array.unsafe_get`; proposal `Pointer.unsafe_offset`; `unsafe_ptr()` past `len` |
-| **`UNINIT`** | Touching memory with unverified init state (proposal `UMemIn` / `UMemOut`) | `unsafe_write` / `unsafe_deinit`; `init_pointee_*` / `destroy_pointee` / `take_pointee`; `unsafe_uninit_length` |
-| **`UAF`** | Use after lifetime/origin is invalid | `unsafe_dangling()`; `unsafe_origin_cast` / `as_unsafe_any_origin`; holding `unsafe_ptr()` after move/free |
+| **`OOB`** | Bounds | CWE-787 / CWE-125; [Heartbleed](https://heartbleed.com/); [EternalBlue](https://en.wikipedia.org/wiki/EternalBlue) |
+| **`UAF`** | Lifetime / origin | CWE-416; e.g. CVE-2024-1086 |
+| **`UNINIT`** | Initialization state | CWE-908 / CWE-457; [ASD roadmap discussion](https://www.cyber.gov.au/business-government/secure-design/secure-by-design/the-case-for-memory-safe-roadmaps) |
 
-Out of POC core (follow-on): leak helpers such as `unsafe_leak`. Proposal `UMemIn`/`UMemOut` collapse into **`UNINIT`** here.
+Names are **semantic** (which invariant is open), not CPU trap codes. Forum discussion sometimes splits init further (`UMemIn` / `UMemOut`); this POC folds those into **`UNINIT`**.
 
-Sources: [forum proposal](https://forum.modular.com/t/proposal-the-risk-effect-reducing-the-verbosity-of-unsafe-naming-convention/3382), [UnsafePointer](https://docs.modular.com/mojo/std/memory/unsafe_pointer/UnsafePointer/), List/Array docs.
+Rough map from `unsafe_`-style APIs:
 
-## 3. Industry context — top 3 risks
+| Risk | Typical API role |
+|---|---|
+| **`OOB`** | `unsafe_get`, `unsafe_offset`, access past `len` |
+| **`UNINIT`** | write / deinit / init / take pointee; uninit length |
+| **`UAF`** | dangling / origin-cast; raw pointer across free |
 
-Memory-unsafe defects still dominate critical reports (~70% historically at Microsoft/Chromium; [CISA](https://www.cisa.gov/news-events/news/urgent-need-memory-safety-software-products)). POC vocabulary:
-
-1. **`OOB`** (CWE-787 / CWE-125) — [Heartbleed](https://heartbleed.com/) (CVE-2014-0160); [EternalBlue](https://en.wikipedia.org/wiki/EternalBlue) / WannaCry (CVE-2017-0144).
-2. **`UAF`** (CWE-416) — Chrome/WebKit sandbox escapes; kernel UAF chains (e.g. CVE-2024-1086).
-3. **`UNINIT`** (CWE-908 / CWE-457) — uninitialized reads → leaks / broken ASLR; called out in [ASD memory-safe roadmaps](https://www.cyber.gov.au/business-government/secure-design/secure-by-design/the-case-for-memory-safe-roadmaps).
-
-## 4. Semantic risk vs hardware traps
-
-Risk names describe **program semantics** (which invariant the author claims), not CPU/ISA events. Some risks *materialize* as traps on particular architectures (Intel page faults, #GP, Arm MTE). Documented CPU trap catalogs are a useful **source of candidates**, not a 1:1 naming scheme and not exhaustive. Keep vocabulary semantic (`OOB`, `UAF`, `UNINIT`).
-
-## 5. Goals / non-goals
-
-**Goals:** localized, greppable risk acknowledgment; comptime-conditional mitigation; extensible feature hooks under `src/extensions/`.
-
-**Non-goals (this POC):** full effect inference beyond direct calls; `@risk` / `using risk` / general `with`; real Pointer APIs or UB checking; true comptime constant-folding of conditional risk masks.
-
-## 6. Before / after (conceptual)
+## 3. Before / after
 
 ```text
-# Today (naming convention)
+# Naming convention: acknowledgment baked into the name
 ptr = ptr.unsafe_offset(k)
 x = list.unsafe_get(i)
 
-# With risk feature (semantic names + local acknowledgment)
+# Separated: semantic ops + explicit acknowledgment of residual risk
 risk(OOB):
     ptr = ptr + k
     x = list[i]
 ```
 
-## 7. Syntax
+In the POC, introduction is on the callee (`risk(OOB)` on the signature); acknowledgment is required at the call site (block or caller annotation).
+
+## 4. What the POC builds
+
+| Piece | Role |
+|---|---|
+| `risk(A\|B):` / `risk(A if cond else B):` | Lexical acknowledgment |
+| `def f(...) risk(A\|B):` | Introduces/propagates bits; acknowledges for calls inside `f` |
+| Coverage check ([`check.js`](../src/extensions/risk/check.js)) | Semantic error if an annotated callee is called without covering acknowledgment |
+| `--accept-risks` | Explicit escape hatch for the check |
+| Bitmasks `OOB`, `UAF`, `UNINIT`, `NO_RISK` | Internal encoding; identifiers only in source |
 
 ```
-risk_stmt     = "risk" "(" risk_clause { "|" risk_clause } ")" ":" block
-risk_annot    = "risk" "(" risk_name { "|" risk_name } ")"   # on def/method signatures
-risk_clause   = risk_name
-              | risk_name "if" expression "else" risk_name
-risk_name     = ID   # OOB | UAF | UNINIT | NO_RISK — identifiers only
+risk_stmt   = "risk" "(" risk_clause { "|" risk_clause } ")" ":" block
+risk_annot  = "risk" "(" risk_name { "|" risk_name } ")"
+risk_clause = risk_name | risk_name "if" expression "else" risk_name
+risk_name   = ID
 ```
 
-**Identifiers only:** `risk(1):` or `risk(OOB | 4):` is a parse error. Risks must stay greppable and explicit.
+Encoding ([`bits.js`](../src/extensions/risk/bits.js)): `NO_RISK=0`, `OOB=1`, `UAF=2`, `UNINIT=4`. CLI: `node run.js --feature risk file.mojo` (optional `--accept-risks`).
 
-**Signature annotation** (introduces risk; same as wrapping the body in that block for discharge of calls *inside* the function):
+## 5. Central experiment: comptime specialization and `OOB`
 
-```
-def read(buf, i) risk(UNINIT) -> Int:
-    return buf[i]
+Can a **`comptime` specialization carry a different statically visible risk contract**—not only a runtime branch that skips an unchecked load?
 
-def reverse(buf, start, end) risk(OOB | UNINIT):
-    ...
-```
-
-**Call-site discharge:** calling a `risk(A|B)` function requires an enclosing scope that covers `A|B` — either a `risk(A|B):` block or the caller’s own `risk(A|B)` annotation. Otherwise this is a **semantic error** (not a parse error). Pass `--accept-risks` (or `parse(..., { acceptRisks: true })`) to skip the check.
-
-### Simple
-
-```text
-risk(OOB):
-    print(1)
-```
-
-### Comptime-conditional mitigation
+([`web/risk/conditional.mojo`](../web/risk/conditional.mojo), [`test/extensions/risk/risk_conditional.mojo`](../test/extensions/risk/risk_conditional.mojo)):
 
 ```
-def get[BOUNDS_CHECK: Bool]​(arr: List[Int], i: Int) raises -> Int:
+def get_unchecked(arr: List[Int], i: Int) risk(OOB) -> Int:
+    return arr[i]
+
+def get[BOUNDS_CHECK: Bool](arr: List[Int], i: Int) raises -> Int:
     if BOUNDS_CHECK:
         if i < 0 or i >= len(arr):
             raise Error("index out of bounds")
-    risk(OOB if not BOUNDS_CHECK else NO_RISK):
         return arr[i]
+    risk(OOB):
+        return get_unchecked(arr, i)
 ```
 
-### Combined clauses
+- **`get[True]`** — Bounds check; never calls `get_unchecked` on that path. Mitigation keeps `OOB` off the checked specialization’s success path.
+- **`get[False]`** — Calls `get_unchecked` (**introduces** `OOB`) under `risk(OOB):` (**acknowledges**). Missing acknowledgment → semantic error (unless `--accept-risks`).
 
-```text
-risk(OOB if not BOUNDS_CHECK else NO_RISK | UAF):
-    pass
-```
+The parser also accepts `risk(OOB if not BOUNDS_CHECK else NO_RISK):`; the demos emphasize specialization + a risk-bearing callee.
 
-## 8. Bitmask encoding
+## 6. Another dimension: `UNINIT` and state
 
-Internal encoding in [`src/extensions/risk/bits.js`](../src/extensions/risk/bits.js):
+([`web/risk/uninit.mojo`](../web/risk/uninit.mojo)) — arena slots with an init flag; methods annotated `risk(UNINIT)`:
 
-```
-NO_RISK = 0
-OOB     = 1 << 0   # 1
-UAF     = 1 << 1   # 2
-UNINIT  = 1 << 2   # 4
-```
+- **`write`** — Treats the slot as open for init write, then marks initialized.
+- **`take`** — Moves the value out and returns the slot to uninitialized.
+- **`read`** — Load under an open init obligation in this model.
 
-Source `|` between clauses is bitwise OR. Masks are never written as digits in Mojo source.
+Call sites use `risk(UNINIT):`. Risk tracks a **state transition** (initialized ↔ uninitialized), not only a fixed `unsafe_*` name.
 
-## 9. Semantics (mojo-js)
+## 7. Other demos
 
-AST: `{ type: Risk, clauses: [...], body: Statement[] }`; functions/methods may carry `riskMask`.
+| File | Focus |
+|---|---|
+| [`oob.mojo`](../web/risk/oob.mojo) | `get_unchecked` / overread past live length |
+| [`uaf.mojo`](../web/risk/uaf.mojo) | `load_raw` after free + reuse |
+| [`rotate.mojo`](../web/risk/rotate.mojo) | `risk(OOB \| UNINIT)` on reverse/rotate |
+| [`conditional.mojo`](../web/risk/conditional.mojo) | §5 |
+| [`uninit.mojo`](../web/risk/uninit.mojo) | §6 |
 
-- `mask` clause → `{ kind: 'mask', mask }`
-- conditional → `{ kind: 'conditional', thenMask, condition, elseMask }`
-- Signature `risk(A|B)` → `riskMask = A|B` (no conditionals on signatures)
+Hooks: [`src/extensions/`](../src/extensions/) registry; risk pack under [`src/extensions/risk/`](../src/extensions/risk/).
 
-**Compile-time coverage** ([`check.js`](../src/extensions/risk/check.js)): every call to a callee with non-zero `riskMask` must occur under an enclosing scope whose acknowledged bits cover that mask. Function `riskMask` is identical to wrapping the body in `risk(...)`. Block scopes OR bits from their clauses (conditionals contribute `then|else`). Failures throw `SemanticError`.
+## 8. Questions being explored
 
-Emit still calls `acknowledgeRisk(<maskExpr>)` then runs block bodies (runtime no-op documentation in JS). Enforcement is the semantic check unless `--accept-risks`.
+1. **Taxonomy** — What should count as a risk, and who defines the set?
+2. **Inference vs declaration** — Declare on APIs (as here), infer from bodies, or both?
+3. **Propagation** — How should risk flow through calls, generics, and higher-order code?
+4. **Discharge** — When does a check or proof clear an obligation, and how is that shown in the language?
+5. **Comptime conditionality** — Can specializations expose different risk contracts (§5)?
+6. **Composition** — Is bitmask OR (`OOB | UNINIT`) the right algebra for simultaneous risks?
+7. **Other effects** — How should risk interact with `raises` and future effects?
+8. **Public contract** — Should signature `risk(...)` be part of a function’s API surface?
+9. **Tooling** — How should IDEs and auditors surface and review acknowledgment?
+10. **Surface syntax** — `@risk`, `with` / `using`, alternate spellings, finer `UNINIT` splits, leak-related risks, …
 
-## 10. Extension hook integration
+## 9. Test plan (mojo-js)
 
-- Registry: [`src/extensions/index.js`](../src/extensions/index.js)
-- Pack: [`src/extensions/risk/`](../src/extensions/risk/) (`index.js`, `bits.js`, `parse.js`, `emit.js`, `check.js`)
-- Enable: `parse(source, { features: ['risk'] })`, `emitProgram(program, rt, { features: ['risk'] })`, CLI `node run.js --feature risk file.mojo`
-- Skip coverage check: `parse(source, { features: ['risk'], acceptRisks: true })` or CLI `--accept-risks`
-- Future POCs: add `src/extensions/<name>/` and register in the index.
-
-## 11. Examples
-
-Runnable demos under [`web/risk/`](../web/risk/) (`node run.js --feature risk web/risk/<file>.mojo`):
-
-- [`oob.mojo`](../web/risk/oob.mojo) — `get_unchecked` annotated `risk(OOB)`; call sites use `risk(OOB):`
-- [`uaf.mojo`](../web/risk/uaf.mojo) — `load_raw` annotated `risk(UAF)`
-- [`uninit.mojo`](../web/risk/uninit.mojo) — Arena `read`/`write`/`take` annotated `risk(UNINIT)`
-- [`rotate.mojo`](../web/risk/rotate.mojo) — `reverse`/`rotate` annotated `risk(OOB | UNINIT)`
-- [`conditional.mojo`](../web/risk/conditional.mojo) — unchecked path calls `get_unchecked` under `risk(OOB):`
-
-Tests: [`test/extensions/risk/`](../test/extensions/risk/).
-
-## 12. Open questions
-
-- `@risk` line decorator, `with risk`, `using risk`
-- Signature-level effects beyond direct call coverage / `--accept-risks`
-- Splitting `UNINIT` back into `UMemIn` / `UMemOut`
-- True comptime folding of risk masks
-- Resource-leak risks (`unsafe_leak`) as additional bits
-
-## 13. Test plan
-
-- Construct fixtures under `test/extensions/risk/` (feature enabled via directory name)
-- Without `--feature risk`, `risk(...):` does not parse as this statement
-- Numeric risk operands rejected when the feature is enabled
-- Uncovered calls to `risk(...)`-annotated callees are a compile error; `--accept-risks` skips the check
+- Fixtures under `test/extensions/risk/`
+- Feature off → `risk(...):` is not this form
+- Numeric risk operands rejected when the feature is on
+- Uncovered annotated calls → `SemanticError`; `--accept-risks` skips the check
