@@ -82,18 +82,21 @@ In the POC, introduction is on the callee (`risk(OOB)` on the signature); acknow
 
 | Piece | Role |
 |---|---|
-| `risk(A\|B):` / `risk(A if cond else B):` | Lexical acknowledgment |
-| `def f(...) risk(A\|B):` | Introduces/propagates bits; acknowledges for calls inside `f` |
+| `risk(A\|B):` / `risk(A if cond else B):` | Lexical acknowledgment (blocks) |
+| `def f(...) risk(...):` | Introduces/propagates; acknowledges for calls inside `f` |
 | Coverage check ([`check.js`](../src/extensions/risk/check.js)) | Semantic error if an annotated callee is called without covering acknowledgment |
 | `--accept-risks` | Explicit escape hatch for the check |
 | Bitmasks `OOB`, `UAF`, `UNINIT`, `NO_RISK` | Internal encoding; identifiers only in source |
 
 ```
-risk_stmt   = "risk" "(" risk_clause { "|" risk_clause } ")" ":" block
-risk_annot  = "risk" "(" risk_name { "|" risk_name } ")"
-risk_clause = risk_name | risk_name "if" expression "else" risk_name
-risk_name   = ID
+risk_form    = "risk" "(" risk_clause { "|" risk_clause } ")"
+risk_stmt    = risk_form ":" block
+risk_annot   = risk_form
+risk_clause  = risk_name | risk_name "if" expression "else" risk_name
+risk_name    = ID
 ```
+
+Conditionals fold at call sites when comptime `Bool` type args are known; otherwise coverage uses the union of both arms. Signature risk acknowledges the same way as wrapping the body in that `risk(...)` form.
 
 Encoding ([`bits.js`](../src/extensions/risk/bits.js)): `NO_RISK=0`, `OOB=1`, `UAF=2`, `UNINIT=4`. CLI: `node run.js --feature risk file.mojo` (optional `--accept-risks`).
 
@@ -104,22 +107,18 @@ Can a **`comptime` specialization carry a different statically visible risk cont
 ([`web/risk/conditional.mojo`](../web/risk/conditional.mojo), [`test/extensions/risk/risk_conditional.mojo`](../test/extensions/risk/risk_conditional.mojo)):
 
 ```
-def get_unchecked(arr: List[Int], i: Int) risk(OOB) -> Int:
-    return arr[i]
-
-def get[BOUNDS_CHECK: Bool](arr: List[Int], i: Int) raises -> Int:
+def get[BOUNDS_CHECK: Bool](arr: List[Int], i: Int) raises risk(OOB if not BOUNDS_CHECK else NO_RISK) -> Int:
     if BOUNDS_CHECK:
         if i < 0 or i >= len(arr):
             raise Error("index out of bounds")
         return arr[i]
-    risk(OOB):
-        return get_unchecked(arr, i)
+    return arr[i]
 ```
 
-- **`get[True]`** — Bounds check; never calls `get_unchecked` on that path. Mitigation keeps `OOB` off the checked specialization’s success path.
-- **`get[False]`** — Calls `get_unchecked` (**introduces** `OOB`) under `risk(OOB):` (**acknowledges**). Missing acknowledgment → semantic error (unless `--accept-risks`).
+- **`get[True]`** — Folds to `NO_RISK`. Bounds check on the checked path; callers need no `OOB` acknowledgment.
+- **`get[False]`** — Folds to `OOB`. Call sites must acknowledge with `risk(OOB):` (or a covering signature). Missing acknowledgment → semantic error (unless `--accept-risks`).
 
-The parser also accepts `risk(OOB if not BOUNDS_CHECK else NO_RISK):`; the demos emphasize specialization + a risk-bearing callee.
+So `OOB` is conditional on the specialization: the checked instantiation does not introduce it; the unchecked one does.
 
 ## 6. Another dimension: `UNINIT` and state
 

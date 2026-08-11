@@ -345,8 +345,11 @@ class Parser {
     if (this.is(Tok.RAISES)) this.advance();
     this.skipNewlines();
     let riskMask = 0;
+    let riskClauses = null;
     if (this.hasRiskFeature && this.is(Tok.RISK)) {
-      riskMask = parseRiskMaskAnnotation(this);
+      const annot = parseRiskMaskAnnotation(this);
+      riskMask = annot.riskMask;
+      riskClauses = annot.riskClauses;
       this.skipNewlines();
     }
     let returnType = null;
@@ -366,7 +369,7 @@ class Parser {
     } else {
       body = this.parseBlock();
     }
-    return { type: T.Method, name, params, returnType, body, riskMask };
+    return { type: T.Method, name, params, returnType, body, riskMask, riskClauses };
   }
 
   parseFunction() {
@@ -455,8 +458,11 @@ class Parser {
     }
     this.skipNewlines();
     let riskMask = 0;
+    let riskClauses = null;
     if (this.hasRiskFeature && this.is(Tok.RISK)) {
-      riskMask = parseRiskMaskAnnotation(this);
+      const annot = parseRiskMaskAnnotation(this);
+      riskMask = annot.riskMask;
+      riskClauses = annot.riskClauses;
       this.skipNewlines();
     }
     let returnType = null;
@@ -476,7 +482,7 @@ class Parser {
     } else {
       body = this.parseBlock();
     }
-    return { type: T.Function, name, params, returnType, body, isDef: true, typeParams, raises, riskMask };
+    return { type: T.Function, name, params, returnType, body, isDef: true, typeParams, raises, riskMask, riskClauses };
   }
 
   parseBlock() {

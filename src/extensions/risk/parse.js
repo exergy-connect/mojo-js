@@ -1,5 +1,5 @@
 /**
- * Parse risk(...): block statements and risk(A|B) signature annotations.
+ * Parse risk(...) forms for block statements and def/method annotations.
  */
 
 const Tok = require('../../token-types.js');
@@ -44,51 +44,15 @@ function parseRiskClause(parser) {
 }
 
 /**
- * Parse risk(A|B|...) for function/method signatures (no conditionals).
- * Caller has not yet consumed the RISK token.
+ * Parse risk(clause {| clause}).
  * @param {import('../../parser.js').Parser} parser
- * @returns {number}
+ * @returns {object[]} clauses
  */
-function parseRiskMaskAnnotation(parser) {
-  const start = parser.peek();
+function parseRiskClauses(parser) {
   parser.expect(Tok.RISK);
   parser.skipNewlines();
   parser.expect(Tok.LPAREN);
   parser.skipNewlines();
-  let mask = 0;
-  mask |= parseRiskName(parser);
-  parser.skipNewlines();
-  if (parser.is(Tok.IF)) {
-    throw new Error(
-      `Conditional risk clauses are not allowed on function signatures at line ${start.line || 1}`
-    );
-  }
-  while (parser.is(Tok.PIPE)) {
-    parser.advance();
-    parser.skipNewlines();
-    mask |= parseRiskName(parser);
-    parser.skipNewlines();
-    if (parser.is(Tok.IF)) {
-      throw new Error(
-        `Conditional risk clauses are not allowed on function signatures at line ${start.line || 1}`
-      );
-    }
-  }
-  parser.expect(Tok.RPAREN);
-  return mask;
-}
-
-/**
- * @param {import('../../parser.js').Parser} parser
- * @returns {object|null}
- */
-function parseRiskStatement(parser) {
-  if (!parser.is(Tok.RISK)) return null;
-  parser.advance();
-  parser.skipNewlines();
-  parser.expect(Tok.LPAREN);
-  parser.skipNewlines();
-
   const clauses = [];
   clauses.push(parseRiskClause(parser));
   parser.skipNewlines();
@@ -99,6 +63,31 @@ function parseRiskStatement(parser) {
     parser.skipNewlines();
   }
   parser.expect(Tok.RPAREN);
+  return clauses;
+}
+
+/**
+ * Parse risk(...) for function/method signatures.
+ * @param {import('../../parser.js').Parser} parser
+ * @returns {{ riskClauses: object[], riskMask: number }}
+ */
+function parseRiskMaskAnnotation(parser) {
+  const riskClauses = parseRiskClauses(parser);
+  let riskMask = 0;
+  for (const c of riskClauses) {
+    if (c.kind === 'mask') riskMask |= c.mask;
+    else if (c.kind === 'conditional') riskMask |= c.thenMask | c.elseMask;
+  }
+  return { riskClauses, riskMask };
+}
+
+/**
+ * @param {import('../../parser.js').Parser} parser
+ * @returns {object|null}
+ */
+function parseRiskStatement(parser) {
+  if (!parser.is(Tok.RISK)) return null;
+  const clauses = parseRiskClauses(parser);
   parser.skipNewlines();
   if (parser.is(Tok.INDENT)) parser.advance();
   parser.expect(Tok.COLON);
@@ -116,4 +105,10 @@ function parseRiskStatement(parser) {
   return { type: T.Risk, clauses, body };
 }
 
-module.exports = { parseRiskStatement, parseRiskMaskAnnotation, parseRiskName, parseRiskClause };
+module.exports = {
+  parseRiskStatement,
+  parseRiskMaskAnnotation,
+  parseRiskClauses,
+  parseRiskName,
+  parseRiskClause,
+};
