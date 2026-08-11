@@ -42,7 +42,7 @@ Risk names describe **program semantics** (which invariant the author claims), n
 
 **Goals:** localized, greppable risk acknowledgment; comptime-conditional mitigation; extensible feature hooks under `src/extensions/`.
 
-**Non-goals (this POC):** full effect system; signature-level `def f() risk OOB:`; `@risk` / `using risk` / general `with`; real Pointer APIs or UB checking; true comptime constant-folding of masks.
+**Non-goals (this POC):** full effect inference beyond direct calls; `@risk` / `using risk` / general `with`; real Pointer APIs or UB checking; true comptime constant-folding of conditional risk masks.
 
 ## 6. Before / after (conceptual)
 
@@ -61,12 +61,25 @@ risk(OOB):
 
 ```
 risk_stmt     = "risk" "(" risk_clause { "|" risk_clause } ")" ":" block
+risk_annot    = "risk" "(" risk_name { "|" risk_name } ")"   # on def/method signatures
 risk_clause   = risk_name
               | risk_name "if" expression "else" risk_name
 risk_name     = ID   # OOB | UAF | UNINIT | NO_RISK — identifiers only
 ```
 
 **Identifiers only:** `risk(1):` or `risk(OOB | 4):` is a parse error. Risks must stay greppable and explicit.
+
+**Signature annotation** (introduces risk; same as wrapping the body in that block for discharge of calls *inside* the function):
+
+```
+def read(buf, i) risk(UNINIT) -> Int:
+    return buf[i]
+
+def reverse(buf, start, end) risk(OOB | UNINIT):
+    ...
+```
+
+**Call-site discharge:** calling a `risk(A|B)` function requires an enclosing scope that covers `A|B` — either a `risk(A|B):` block or the caller’s own `risk(A|B)` annotation. Otherwise this is a **compile-time error**. Pass `--accept-risks` (or `parse(..., { acceptRisks: true })`) to skip the check.
 
 ### Simple
 
@@ -108,36 +121,40 @@ Source `|` between clauses is bitwise OR. Masks are never written as digits in M
 
 ## 9. Semantics (mojo-js)
 
-AST: `{ type: Risk, clauses: [...], body: Statement[] }`
+AST: `{ type: Risk, clauses: [...], body: Statement[] }`; functions/methods may carry `riskMask`.
 
 - `mask` clause → `{ kind: 'mask', mask }`
 - conditional → `{ kind: 'conditional', thenMask, condition, elseMask }`
+- Signature `risk(A|B)` → `riskMask = A|B` (no conditionals on signatures)
 
-Emit calls `acknowledgeRisk(<maskExpr>)` then runs the body in a JS block. `acknowledgeRisk(0)` is a no-op. No real safety enforcement.
+**Compile-time coverage** ([`check.js`](../src/extensions/risk/check.js)): every call to a callee with non-zero `riskMask` must occur under an enclosing scope whose acknowledged bits cover that mask. Function `riskMask` is identical to wrapping the body in `risk(...)`. Block scopes OR bits from their clauses (conditionals contribute `then|else`).
+
+Emit still calls `acknowledgeRisk(<maskExpr>)` then runs block bodies (runtime no-op documentation in JS). Enforcement is the compile-time check unless `--accept-risks`.
 
 ## 10. Extension hook integration
 
 - Registry: [`src/extensions/index.js`](../src/extensions/index.js)
-- Pack: [`src/extensions/risk/`](../src/extensions/risk/) (`index.js`, `bits.js`, `parse.js`, `emit.js`)
+- Pack: [`src/extensions/risk/`](../src/extensions/risk/) (`index.js`, `bits.js`, `parse.js`, `emit.js`, `check.js`)
 - Enable: `parse(source, { features: ['risk'] })`, `emitProgram(program, rt, { features: ['risk'] })`, CLI `node run.js --feature risk file.mojo`
+- Skip coverage check: `parse(source, { features: ['risk'], acceptRisks: true })` or CLI `--accept-risks`
 - Future POCs: add `src/extensions/<name>/` and register in the index.
 
 ## 11. Examples
 
 Runnable demos under [`web/risk/`](../web/risk/) (`node run.js --feature risk web/risk/<file>.mojo`):
 
-- [`oob.mojo`](../web/risk/oob.mojo) — buffer overread past live length into capacity (`unsafe_get`)
-- [`uaf.mojo`](../web/risk/uaf.mojo) — dangling heap handle after free + slot reuse
-- [`uninit.mojo`](../web/risk/uninit.mojo) — read/write/take on slots without an init proof
-- [`rotate.mojo`](../web/risk/rotate.mojo) — in-place rotate via reverse (`OOB | UNINIT`)
-- [`conditional.mojo`](../web/risk/conditional.mojo) — comptime `BOUNDS_CHECK` mitigates `OOB` to `NO_RISK`
+- [`oob.mojo`](../web/risk/oob.mojo) — `get_unchecked` annotated `risk(OOB)`; call sites use `risk(OOB):`
+- [`uaf.mojo`](../web/risk/uaf.mojo) — `load_raw` annotated `risk(UAF)`
+- [`uninit.mojo`](../web/risk/uninit.mojo) — Arena `read`/`write`/`take` annotated `risk(UNINIT)`
+- [`rotate.mojo`](../web/risk/rotate.mojo) — `reverse`/`rotate` annotated `risk(OOB | UNINIT)`
+- [`conditional.mojo`](../web/risk/conditional.mojo) — unchecked path calls `get_unchecked` under `risk(OOB):`
 
 Tests: [`test/extensions/risk/`](../test/extensions/risk/).
 
 ## 12. Open questions
 
 - `@risk` line decorator, `with risk`, `using risk`
-- Signature-level effects and propagation
+- Signature-level effects beyond direct call coverage / `--accept-risks`
 - Splitting `UNINIT` back into `UMemIn` / `UMemOut`
 - True comptime folding of risk masks
 - Resource-leak risks (`unsafe_leak`) as additional bits
@@ -147,3 +164,4 @@ Tests: [`test/extensions/risk/`](../test/extensions/risk/).
 - Construct fixtures under `test/extensions/risk/` (feature enabled via directory name)
 - Without `--feature risk`, `risk(...):` does not parse as this statement
 - Numeric risk operands rejected when the feature is enabled
+- Uncovered calls to `risk(...)`-annotated callees are a compile error; `--accept-risks` skips the check

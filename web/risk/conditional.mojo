@@ -1,16 +1,19 @@
 # Conditional risk: comptime BOUNDS_CHECK chooses OOB acknowledgment vs NO_RISK.
-# Same unchecked load as List.unsafe_get; the if-arm is the mitigation proof.
+# get_unchecked introduces OOB; the checked path never calls it.
 # Run: node run.js --feature risk web/risk/conditional.mojo
+
+def get_unchecked(arr: List[Int], i: Int) risk(OOB) -> Int:
+    return arr[i]
 
 def get[BOUNDS_CHECK: Bool](arr: List[Int], i: Int) raises -> Int:
     if BOUNDS_CHECK:
         if i < 0 or i >= len(arr):
             raise Error("index out of bounds")
-    risk(OOB if not BOUNDS_CHECK else NO_RISK):
         return arr[i]
+    risk(OOB):
+        return get_unchecked(arr, i)
 
 def sum_prefix[BOUNDS_CHECK: Bool](arr: List[Int], n: Int) raises -> Int:
-    # Sum first n elements. With checks off, n > len(arr) is a real overread.
     var total = 0
     var i = 0
     while i < n:
@@ -29,5 +32,4 @@ def main():
     except e:
         print("checked path rejected OOB index")
 
-    # Unchecked path: n past len — JS returns undefined; in native Mojo this is UB.
     print("unchecked overread sum (n=5):", sum_prefix[False](arr, 5))

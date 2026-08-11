@@ -28,6 +28,19 @@ function resolveRiskName(name, line) {
   return RISK_BITS[name];
 }
 
+/**
+ * @param {number} mask
+ * @returns {string}
+ */
+function formatRiskMask(mask) {
+  if (!mask) return 'NO_RISK';
+  const names = [];
+  if (mask & OOB) names.push('OOB');
+  if (mask & UAF) names.push('UAF');
+  if (mask & UNINIT) names.push('UNINIT');
+  return names.join('|');
+}
+
 module.exports = {
   NO_RISK,
   OOB,
@@ -35,4 +48,5 @@ module.exports = {
   UNINIT,
   RISK_BITS,
   resolveRiskName,
+  formatRiskMask,
 };

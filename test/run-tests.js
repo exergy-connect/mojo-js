@@ -137,11 +137,13 @@ function main() {
         const hasLine = e.message.includes('line');
         if (features.length > 0) {
           const ok =
-            hasLine &&
-            (e.message.includes('Expected risk identifier') ||
-              e.message.includes('got number') ||
-              e.message.includes('Unknown risk'));
-          assert(ok, `Expected feature parse error with line, got: ${e.message}`);
+            e.message.includes('requires risk') ||
+            e.message.includes('Conditional risk') ||
+            (hasLine &&
+              (e.message.includes('Expected risk identifier') ||
+                e.message.includes('got number') ||
+                e.message.includes('Unknown risk')));
+          assert(ok, `Expected feature parse/check error, got: ${e.message}`);
         } else {
           const hasKeywordError =
             e.message.includes('Unknown keyword') || e.message.includes("Expected 'struct'");

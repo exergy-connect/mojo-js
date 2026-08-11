@@ -9,7 +9,8 @@ A **source-level transpiler** that reads simple Mojo programs and runs them by t
 ```bash
 node run.js <file.mojo> [args...]
 node run.js -p <file.mojo>   # print emitted JS only
-node run.js --feature risk <file.mojo>   # enable experimental risk blocks
+node run.js --feature risk <file.mojo>   # enable experimental risk blocks/annotations
+node run.js --feature risk --accept-risks <file.mojo>  # skip compile-time risk coverage check
 
 # Examples:
 node run.js web/example.mojo 42
@@ -42,7 +43,7 @@ Deprecated Mojo forms (`fn`, `inout`, `__copyinit__`, `__moveinit__`) are reject
 
 Enable with `--feature <name>` (CLI) or `{ features: ['name'] }` on `parse` / `emitProgram` / `runMojo`. Extensions live under `src/extensions/`.
 
-- **`risk`** — block-level `risk(OOB):` / `risk(OOB if not BOUNDS_CHECK else NO_RISK):` acknowledgment (bitmasks; identifiers only). Intended as a POC successor to Mojo’s `unsafe_` naming convention. Design note: [proposals/risk.md](proposals/risk.md). Examples: [web/risk/](web/risk/).
+- **`risk`** — block-level `risk(OOB):` and signature `def f() risk(OOB | UNINIT):` (bitmasks; identifiers only). Calls to annotated callees must be covered by an enclosing risk scope, or pass `--accept-risks`. Design note: [proposals/risk.md](proposals/risk.md). Examples: [web/risk/](web/risk/).
 
 ## Project layout
 

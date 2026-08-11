@@ -23,7 +23,7 @@ struct          = "struct" ID [ "(" trait_ref { "," trait_ref } ")" ] ":" INDENT
 trait           = ID ;
 struct_body     = { field | method } ;
 field           = "var" ID [ ":" type ] [ "=" expression ] ;
-method          = "def" ID "(" param_list ")" [ "raises" ] [ "->" type ] ":" block ;
+method          = "def" ID "(" param_list ")" [ "raises" ] [ risk_annot ] [ "->" type ] ":" block ;
 
 param_list      = { param "," } [ param ] ;
 param           = [ "out" | "mut" ] "self" [ ":" type ]
@@ -33,8 +33,15 @@ param           = [ "out" | "mut" ] "self" [ ":" type ]
                 | ID [ ":" type ] ;
 
 function        = "def" ID [ "[" type_param { "," type_param } "]" ]
-                  "(" param_list ")" [ "raises" ] [ "->" type ] ":" block ;
+                  "(" param_list ")" [ "raises" ] [ risk_annot ] [ "->" type ] ":" block ;
 type_param      = ID ":" type ;
+
+(* Experimental --feature risk *)
+risk_annot      = "risk" "(" risk_name { "|" risk_name } ")" ;
+risk_stmt       = "risk" "(" risk_clause { "|" risk_clause } ")" ":" block ;
+risk_clause     = risk_name | risk_name "if" expression "else" risk_name ;
+risk_name       = ID ;
+
 
 block           = INDENT { statement } DEDENT
                 | statement ;

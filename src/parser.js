@@ -11,6 +11,8 @@ const {
   collectExtraKeywords,
   collectStatementHandlers,
 } = require('./extensions/index.js');
+const { parseRiskMaskAnnotation } = require('./extensions/risk/parse.js');
+const { checkRisks } = require('./extensions/risk/check.js');
 
 /** Token types accepted as a primary expression (parsed as Id). */
 const PRIMARY_AS_ID = new Set([
@@ -28,11 +30,13 @@ class Parser {
    * @param {{ features?: string[] }} [options]
    */
   constructor(source, options = {}) {
+    this.options = options;
     this.extensions = resolveExtensions(options.features || []);
     this.statementHandlers = collectStatementHandlers(this.extensions);
     const extraKeywords = collectExtraKeywords(this.extensions);
     this.tokens = tokenize(source, { extraKeywords });
     this.i = 0;
+    this.hasRiskFeature = this.extensions.some((e) => e.name === 'risk');
   }
 
   peek() {
@@ -340,6 +344,11 @@ class Parser {
     this.skipNewlines();
     if (this.is(Tok.RAISES)) this.advance();
     this.skipNewlines();
+    let riskMask = 0;
+    if (this.hasRiskFeature && this.is(Tok.RISK)) {
+      riskMask = parseRiskMaskAnnotation(this);
+      this.skipNewlines();
+    }
     let returnType = null;
     if (this.is(Tok.RARROW)) {
       this.advance();
@@ -357,7 +366,7 @@ class Parser {
     } else {
       body = this.parseBlock();
     }
-    return { type: T.Method, name, params, returnType, body };
+    return { type: T.Method, name, params, returnType, body, riskMask };
   }
 
   parseFunction() {
@@ -445,6 +454,11 @@ class Parser {
       raises = true;
     }
     this.skipNewlines();
+    let riskMask = 0;
+    if (this.hasRiskFeature && this.is(Tok.RISK)) {
+      riskMask = parseRiskMaskAnnotation(this);
+      this.skipNewlines();
+    }
     let returnType = null;
     if (this.is(Tok.RARROW)) {
       this.advance();
@@ -462,7 +476,7 @@ class Parser {
     } else {
       body = this.parseBlock();
     }
-    return { type: T.Function, name, params, returnType, body, isDef: true, typeParams, raises };
+    return { type: T.Function, name, params, returnType, body, isDef: true, typeParams, raises, riskMask };
   }
 
   parseBlock() {
@@ -934,7 +948,11 @@ class Parser {
 
 function parse(source, options = {}) {
   const p = new Parser(source, options);
-  return p.parseProgram();
+  const program = p.parseProgram();
+  if (p.hasRiskFeature) {
+    checkRisks(program, options);
+  }
+  return program;
 }
 
 module.exports = { parse, Parser };

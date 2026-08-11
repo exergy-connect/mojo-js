@@ -1,9 +1,5 @@
 # UAF: use a slot after it was freed and possibly reused by a later allocation.
-# Analogous to holding unsafe_ptr() / a dangling origin across free + alloc.
 # Run: node run.js --feature risk web/risk/uaf.mojo
-
-# Tiny bump heap. free() marks a slot dead but does not wipe it; alloc() may reuse
-# the same index. A stale handle that loads after free is use-after-free.
 
 struct Heap:
     var slots: List[Int]
@@ -25,18 +21,15 @@ struct Heap:
 
     def free(mut self, handle: Int):
         self.live[handle] = 0
-        # Intentionally do not clear slots[handle] — mirrors real free.
 
-    # "Safe" load: refuses dead handles.
     def load(self, handle: Int) raises -> Int:
         if handle < 0 or handle >= len(self.slots) or self.live[handle] == 0:
             raise Error("invalid handle")
         return self.slots[handle]
 
-    # Raw load with no liveness proof — UAF if the handle was freed (and maybe reused).
-    def load_raw(self, handle: Int) -> Int:
-        risk(UAF):
-            return self.slots[handle]
+    # Raw load with no liveness proof — introduces UAF.
+    def load_raw(self, handle: Int) risk(UAF) -> Int:
+        return self.slots[handle]
 
 def make_heap(capacity: Int) -> Heap:
     var slots = List[Int]()
@@ -53,7 +46,6 @@ def main():
     var a = heap.alloc(111)
     print("alloc a ->", a, "value", heap.load(a))
 
-    # Stash a dangling handle, then free.
     var dangling = a
     heap.free(a)
     try:
@@ -61,7 +53,7 @@ def main():
     except e:
         print("safe load rejected dangling handle")
 
-    # Reuse the same slot; the stale handle still indexes it (UAF / type-confusion shape).
     var b = heap.alloc(222)
     print("alloc b ->", b, "(reused same slot:", b == dangling, ")")
-    print("dangling load_raw sees:", heap.load_raw(dangling), "(b's value, via stale handle)")
+    risk(UAF):
+        print("dangling load_raw sees:", heap.load_raw(dangling), "(b's value, via stale handle)")
