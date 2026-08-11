@@ -129,6 +129,18 @@ function main() {
     assert.throws(() => tokenize('def main():\n    inout'), /Unknown keyword.*inout/);
   }) ? passed++ : failed++;
 
+  run('extraKeywords maps custom token', () => {
+    const Tok = require('../src/token-types.js');
+    const tokens = tokenize('risk(OOB)', { extraKeywords: { risk: Tok.RISK } });
+    assert(tokens.some((t) => t.type === Tok.RISK && t.value === 'risk'));
+  }) ? passed++ : failed++;
+
+  run('PIPE token', () => {
+    const Tok = require('../src/token-types.js');
+    const tokens = tokenize('a | b');
+    assert(tokens.some((t) => t.type === Tok.PIPE));
+  }) ? passed++ : failed++;
+
   console.log('');
   console.log(`${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);

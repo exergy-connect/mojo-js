@@ -9,6 +9,7 @@ A **source-level transpiler** that reads simple Mojo programs and runs them by t
 ```bash
 node run.js <file.mojo> [args...]
 node run.js -p <file.mojo>   # print emitted JS only
+node run.js --feature risk <file.mojo>   # enable experimental risk blocks
 
 # Examples:
 node run.js web/example.mojo 42
@@ -31,14 +32,21 @@ node run.js web/ivi_standalone.mojo 3127
 - **Structs** (see [Mojo structs manual](https://docs.modular.com/mojo/manual/structs/)): `struct Name:` or `struct Name(Copyable):` / `struct Name(Movable):`; fields as `var name: Type`; constructor `def __init__(out self, ...):`; optional copy/move via `def __init__(out self, *, copy: Self):` / `def __init__(out self, *, deinit take: Self):`; instance methods with `self` (and `mut self`); `Struct(args...)` construction and `instance.copy()` when Copyable (trait or `__init__(*, copy:)`).
 - **Statements:** `var x = ...`, `x = ...`, `x += ...`, `if`/`elif`/`else`, `while`, `for x in range(n):`, `return`, `continue`, `pass`, `raise`, `try`/`except`
 - **Expressions:** literals, `+` `-` `*` `//` `%`, `==` `!=` `<` `<=` `>` `>=`, `and`/`or`/`not`, `len()`, `range(n)` / `range(a,b)`, `List[Int]()`, struct construction, `.copy()`, `.append()`, method calls (`s.method()`)
-- **Runtime:** `src/runtime.js` (argv, print, atol, range, len, b64encode, b64decode); `src/runtime-traits.js` (hasMethod, requireTrait for trait conformance).
+- **Runtime:** `src/runtime.js` (argv, print, atol, range, len, b64encode, b64decode, acknowledgeRisk); `src/runtime-traits.js` (hasMethod, requireTrait for trait conformance).
 
 Deprecated Mojo forms (`fn`, `inout`, `__copyinit__`, `__moveinit__`) are rejected.
 
+### Experimental features
+
+Enable with `--feature <name>` (CLI) or `{ features: ['name'] }` on `parse` / `emitProgram` / `runMojo`. Extensions live under `src/extensions/`.
+
+- **`risk`** — block-level `risk(OOB):` / `risk(OOB if not BOUNDS_CHECK else NO_RISK):` acknowledgment (bitmasks; identifiers only). Intended as a POC successor to Mojo’s `unsafe_` naming convention. Design note: [proposals/risk.md](proposals/risk.md).
+
 ## Project layout
 
-- **`src/`** – Source: `tokenizer.js`, `parser.js`, `emit.js`, `runtime.js`, `runtime-traits.js`, `run.js`, `ast-types.js`, `token-types.js`.
-- **`test/`** – Test suite: `run-tests.js` (runner), `constructs/*.mojo` (one test per supported construct).
+- **`src/`** – Source: `tokenizer.js`, `parser.js`, `emit.js`, `runtime.js`, `runtime-traits.js`, `run.js`, `ast-types.js`, `token-types.js`, `extensions/` (experimental feature packs).
+- **`proposals/`** – Design notes for experimental language features (e.g. `risk.md`).
+- **`test/`** – Test suite: `run-tests.js` (runner), `constructs/*.mojo` (core constructs), `extensions/<feature>/*.mojo` (experimental packs).
 - **`web/`** – Web project: `index.html` (run Mojo in the browser), `entry.js` (browser bundle entry).
 - **`run.js`** – CLI entry (delegates to `src/run.js`).
 - **`build.js`** – Bundles `web/entry.js` with esbuild; `npm run build` produces `web/mojo-js.min.js`.

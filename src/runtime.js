@@ -83,6 +83,15 @@ function b64decode(s) {
   return new TextDecoder('utf-8').decode(bytes);
 }
 
+/**
+ * Acknowledge a risk bitmask (POC). No-op when mask === 0 (NO_RISK).
+ * @param {number} mask
+ */
+function acknowledgeRisk(mask) {
+  if (!mask) return;
+  // Intentional no-op for the interpreter POC; mask is retained for greppability in emitted JS.
+}
+
 module.exports = {
   argv,
   atol,
@@ -92,5 +101,6 @@ module.exports = {
   len,
   b64encode,
   b64decode,
+  acknowledgeRisk,
   ...traitRuntime,
 };

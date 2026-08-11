@@ -6,6 +6,11 @@ const { tokenize } = require('./tokenizer.js');
 const T = require('./ast-types.js');
 const Tok = require('./token-types.js');
 const { OP_FROM_TYPE } = require('./token-types.js');
+const {
+  resolveExtensions,
+  collectExtraKeywords,
+  collectStatementHandlers,
+} = require('./extensions/index.js');
 
 /** Token types accepted as a primary expression (parsed as Id). */
 const PRIMARY_AS_ID = new Set([
@@ -18,8 +23,15 @@ const STATEMENT_START = new Set([
 ]);
 
 class Parser {
-  constructor(source) {
-    this.tokens = tokenize(source);
+  /**
+   * @param {string} source
+   * @param {{ features?: string[] }} [options]
+   */
+  constructor(source, options = {}) {
+    this.extensions = resolveExtensions(options.features || []);
+    this.statementHandlers = collectStatementHandlers(this.extensions);
+    const extraKeywords = collectExtraKeywords(this.extensions);
+    this.tokens = tokenize(source, { extraKeywords });
     this.i = 0;
   }
 
@@ -671,6 +683,10 @@ class Parser {
     }
     this.skipNewlines();
     if (this.is(Tok.INDENT)) this.advance();
+    for (const handler of this.statementHandlers) {
+      const node = handler(this);
+      if (node) return node;
+    }
     if (this.isOneOf(STATEMENT_START)) return null;
     const expr = this.parseExpression();
     if (this.is(Tok.PLUSASSIGN)) {
@@ -916,8 +932,8 @@ class Parser {
   }
 }
 
-function parse(source) {
-  const p = new Parser(source);
+function parse(source, options = {}) {
+  const p = new Parser(source, options);
   return p.parseProgram();
 }
 

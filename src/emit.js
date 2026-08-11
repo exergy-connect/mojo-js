@@ -3,14 +3,21 @@
  */
 
 const T = require('./ast-types.js');
+const {
+  resolveExtensions,
+  collectEmitStatementHandlers,
+} = require('./extensions/index.js');
 
-function emitProgram(program, runtimeVar = '__runtime') {
+function emitProgram(program, runtimeVar = '__runtime', options = {}) {
+  const extensions = resolveExtensions(options.features || []);
+  const emitHandlers = collectEmitStatementHandlers(extensions);
   const out = [];
   const structNames = new Set(program.structs.map((s) => s.name));
+  const ctx = { emitHandlers };
 
   const inner = '    ';
   out.push(`(function(${runtimeVar}) {`);
-  out.push(`  const { argv, atol, print, range, rangeFromTo, len, b64encode, b64decode, hasMethod, requireTrait, compute, progress = function(){} } = ${runtimeVar};`);
+  out.push(`  const { argv, atol, print, range, rangeFromTo, len, b64encode, b64decode, hasMethod, requireTrait, acknowledgeRisk = function(){}, compute, progress = function(){} } = ${runtimeVar};`);
   out.push(`  return function(__argv) {`);
   out.push('');
 
@@ -19,14 +26,14 @@ function emitProgram(program, runtimeVar = '__runtime') {
   }
 
   for (const fn of program.functions) {
-    emitFunction(fn, out, structNames, inner);
+    emitFunction(fn, out, structNames, inner, ctx);
   }
 
   const mainFn = program.main || program.functions.find((f) => f.name === 'main');
   if (mainFn) {
     out.push(`${inner}function main() {`);
     for (const stmt of mainFn.body) {
-      emitStatement(stmt, out, structNames, 6);
+      emitStatement(stmt, out, structNames, 6, ctx);
     }
     out.push(`${inner}}`);
     out.push(`${inner}main();`);
@@ -132,7 +139,7 @@ function emitStatementForSelf(stmt, out, structNames, selfVar, indent) {
   }
 }
 
-function emitFunction(fn, out, structNames, baseIndent) {
+function emitFunction(fn, out, structNames, baseIndent, ctx) {
   const ind = baseIndent || '  ';
   const name = fn.name;
   const typeParamNames = (fn.typeParams || []).map((p) => p.name);
@@ -140,15 +147,26 @@ function emitFunction(fn, out, structNames, baseIndent) {
   const params = [...typeParamNames, ...paramNames];
   out.push(`${ind}function ${name}(${params.join(', ')}) {`);
   for (const stmt of fn.body) {
-    emitStatement(stmt, out, structNames, ind.length + 2);
+    emitStatement(stmt, out, structNames, ind.length + 2, ctx);
   }
   out.push(`${ind}}`);
   out.push('');
 }
 
-function emitStatement(stmt, out, structNames, indent) {
+function emitStatement(stmt, out, structNames, indent, ctx) {
   const i = ' '.repeat(indent);
   if (!stmt) return;
+  const handler = ctx && ctx.emitHandlers && ctx.emitHandlers[stmt.type];
+  if (handler) {
+    handler(stmt, {
+      out,
+      indent,
+      structNames,
+      emitStatement: (s, o, sn, ind) => emitStatement(s, o, sn, ind, ctx),
+      emitExpr,
+    });
+    return;
+  }
   if (stmt.type === T.VarDecl) {
     const rhs = stmt.value !== null ? emitExpr(stmt.value, structNames) : 'undefined';
     out.push(`${i}let ${stmt.name} = ${rhs};`);
@@ -172,24 +190,24 @@ function emitStatement(stmt, out, structNames, indent) {
   }
   if (stmt.type === T.If) {
     out.push(`${i}if (${emitExpr(stmt.cond, structNames)}) {`);
-    for (const s of stmt.then) emitStatement(s, out, structNames, indent + 2);
+    for (const s of stmt.then) emitStatement(s, out, structNames, indent + 2, ctx);
     out.push(`${i}}`);
     const elifs = stmt.elifs || [];
     for (const branch of elifs) {
       out.push(`${i}else if (${emitExpr(branch.cond, structNames)}) {`);
-      for (const s of branch.body) emitStatement(s, out, structNames, indent + 2);
+      for (const s of branch.body) emitStatement(s, out, structNames, indent + 2, ctx);
       out.push(`${i}}`);
     }
     if (stmt.else && stmt.else.length > 0) {
       out.push(`${i}else {`);
-      for (const s of stmt.else) emitStatement(s, out, structNames, indent + 2);
+      for (const s of stmt.else) emitStatement(s, out, structNames, indent + 2, ctx);
       out.push(`${i}}`);
     }
     return;
   }
   if (stmt.type === T.While) {
     out.push(`${i}while (${emitExpr(stmt.cond, structNames)}) {`);
-    for (const s of stmt.body) emitStatement(s, out, structNames, indent + 2);
+    for (const s of stmt.body) emitStatement(s, out, structNames, indent + 2, ctx);
     out.push(`${i}}`);
     return;
   }
@@ -200,12 +218,12 @@ function emitStatement(stmt, out, structNames, indent) {
       const refIdx = '__ref_i_' + it;
       out.push(`${i}for (let ${refIdx} = 0; ${refIdx} < len(${iter}); ${refIdx}++) {`);
       out.push(`${i}  let ${it} = ${iter}[${refIdx}];`);
-      for (const s of stmt.body) emitStatement(s, out, structNames, indent + 2);
+      for (const s of stmt.body) emitStatement(s, out, structNames, indent + 2, ctx);
       out.push(`${i}  ${iter}[${refIdx}] = ${it};`);
       out.push(`${i}}`);
     } else {
       out.push(`${i}for (const ${it} of ${iter}) {`);
-      for (const s of stmt.body) emitStatement(s, out, structNames, indent + 2);
+      for (const s of stmt.body) emitStatement(s, out, structNames, indent + 2, ctx);
       out.push(`${i}}`);
     }
     return;
@@ -221,10 +239,10 @@ function emitStatement(stmt, out, structNames, indent) {
   }
   if (stmt.type === T.TryExcept) {
     out.push(`${i}try {`);
-    for (const s of stmt.tryBody) emitStatement(s, out, structNames, indent + 2);
+    for (const s of stmt.tryBody) emitStatement(s, out, structNames, indent + 2, ctx);
     const catchVar = stmt.exceptVar || 'e';
     out.push(`${i}} catch (${catchVar}) {`);
-    for (const s of stmt.exceptBody) emitStatement(s, out, structNames, indent + 2);
+    for (const s of stmt.exceptBody) emitStatement(s, out, structNames, indent + 2, ctx);
     out.push(`${i}}`);
     return;
   }

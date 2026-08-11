@@ -3,9 +3,10 @@
  * Minimal Mojo interpreter: read a .mojo file, transpile to JS, run it.
  * Usage: node run.js [options] <file.mojo> [args...]
  * Options:
- *   -p, --print   Print emitted JavaScript to stdout instead of running.
+ *   -p, --print            Print emitted JavaScript to stdout instead of running.
+ *   --feature <name>       Enable an experimental language feature (repeatable).
  * Example: node run.js ../mojo/ivi_standalone.mojo 3127
- * Example: node run.js --print example.mojo
+ * Example: node run.js --feature risk --print example.mojo
  */
 
 const fs = require('fs');
@@ -17,20 +18,28 @@ const runtime = require('./runtime.js');
 function main() {
   const argv = process.argv.slice(2);
   let printJs = false;
+  const features = [];
   const rest = [];
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '-p' || argv[i] === '--print') {
       printJs = true;
+    } else if (argv[i] === '--feature') {
+      if (i + 1 >= argv.length) {
+        console.error('Error: --feature requires a name');
+        process.exit(1);
+      }
+      features.push(argv[++i]);
     } else {
       rest.push(argv[i]);
     }
   }
   if (rest.length === 0) {
-    console.error('Usage: node run.js [-p|--print] <file.mojo> [args...]');
+    console.error('Usage: node run.js [-p|--print] [--feature <name>]... <file.mojo> [args...]');
     process.exit(1);
   }
   const filePath = path.resolve(rest[0]);
   const mojoArgs = [filePath, ...rest.slice(1)];
+  const options = { features };
 
   let source;
   try {
@@ -42,7 +51,7 @@ function main() {
 
   let program;
   try {
-    program = parse(source);
+    program = parse(source, options);
   } catch (e) {
     console.error('Parse error:', e.message);
     process.exit(1);
@@ -50,7 +59,7 @@ function main() {
 
   let jsCode;
   try {
-    jsCode = emitProgram(program);
+    jsCode = emitProgram(program, '__runtime', options);
   } catch (e) {
     console.error('Emit error:', e.message);
     if (e.stack) console.error(e.stack);

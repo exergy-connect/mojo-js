@@ -45,9 +45,11 @@ function isWhitespace(c) {
 
 /**
  * @param {string} source
+ * @param {{ extraKeywords?: Record<string, string> }} [options]
  * @returns {{ type: string, value?: string | number, line?: number, col?: number }[]}
  */
-function tokenize(source) {
+function tokenize(source, options = {}) {
+  const extraKeywords = options.extraKeywords || {};
   const tokens = [];
   let i = 0;
   let line = 1;
@@ -102,6 +104,9 @@ function tokenize(source) {
     while (i < source.length && isIdentPart(peek())) s += advance();
     if (isUnsupportedKeyword(s)) {
       throw new Error(`Unknown keyword '${s}' at line ${start.line}`);
+    }
+    if (Object.prototype.hasOwnProperty.call(extraKeywords, s)) {
+      return { type: extraKeywords[s], value: s, ...start };
     }
     const type = isKeyword(s) ? Tok[s.toUpperCase()] : Tok.ID;
     return { type, value: s, ...start };
@@ -267,6 +272,7 @@ function tokenize(source) {
       continue;
     }
     if (c === '%') { push({ type: Tok.PERCENT, ...start }); continue; }
+    if (c === '|') { push({ type: Tok.PIPE, ...start }); continue; }
     if (c === '/') {
       if (peek() === '/') { advance(); push({ type: Tok.SLASHSLASH, ...start }); }
       else push({ type: Tok.SLASH, ...start });

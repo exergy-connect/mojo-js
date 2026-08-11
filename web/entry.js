@@ -1,22 +1,22 @@
 /**
- * Browser entry: bundle parse + emit + runtime, expose runMojo(source, argv).
+ * Browser entry: bundle parse + emit + runtime, expose runMojo(source, argv[, options]).
  * Used by esbuild to produce dist/mojo-js.min.js.
  */
 const { parse } = require('../src/parser.js');
 const { emitProgram } = require('../src/emit.js');
 const runtime = require('../src/runtime.js');
 
-function runMojo(source, argv = []) {
-  const program = parse(source);
-  const jsCode = emitProgram(program);
+function runMojo(source, argv = [], options = {}) {
+  const program = parse(source, options);
+  const jsCode = emitProgram(program, '__runtime', options);
   const compiled = eval(jsCode);
   const mainFn = compiled(runtime);
   mainFn(argv);
 }
 
-function transpileMojo(source) {
-  const program = parse(source);
-  return emitProgram(program);
+function transpileMojo(source, options = {}) {
+  const program = parse(source, options);
+  return emitProgram(program, '__runtime', options);
 }
 
 if (typeof window !== 'undefined') {
