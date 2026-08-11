@@ -124,7 +124,15 @@ Emit calls `acknowledgeRisk(<maskExpr>)` then runs the body in a JS block. `ackn
 
 ## 11. Examples
 
-See [`test/extensions/risk/risk_block.mojo`](../test/extensions/risk/risk_block.mojo) and [`test/extensions/risk/risk_conditional.mojo`](../test/extensions/risk/risk_conditional.mojo).
+Runnable demos under [`web/risk/`](../web/risk/) (`node run.js --feature risk web/risk/<file>.mojo`):
+
+- [`oob.mojo`](../web/risk/oob.mojo) — buffer overread past live length into capacity (`unsafe_get`)
+- [`uaf.mojo`](../web/risk/uaf.mojo) — dangling heap handle after free + slot reuse
+- [`uninit.mojo`](../web/risk/uninit.mojo) — read/write/take on slots without an init proof
+- [`rotate.mojo`](../web/risk/rotate.mojo) — in-place rotate via reverse (`OOB | UNINIT`)
+- [`conditional.mojo`](../web/risk/conditional.mojo) — comptime `BOUNDS_CHECK` mitigates `OOB` to `NO_RISK`
+
+Tests: [`test/extensions/risk/`](../test/extensions/risk/).
 
 ## 12. Open questions
 

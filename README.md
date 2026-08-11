@@ -14,6 +14,8 @@ node run.js --feature risk <file.mojo>   # enable experimental risk blocks
 # Examples:
 node run.js web/example.mojo 42
 node run.js web/ivi_standalone.mojo 3127
+node run.js --feature risk web/risk/oob.mojo
+node run.js --feature risk web/risk/rotate.mojo 3
 ```
 
 **Tests:** `npm test` runs the suite (construct, tokenizer, and runtime tests).
@@ -40,14 +42,14 @@ Deprecated Mojo forms (`fn`, `inout`, `__copyinit__`, `__moveinit__`) are reject
 
 Enable with `--feature <name>` (CLI) or `{ features: ['name'] }` on `parse` / `emitProgram` / `runMojo`. Extensions live under `src/extensions/`.
 
-- **`risk`** — block-level `risk(OOB):` / `risk(OOB if not BOUNDS_CHECK else NO_RISK):` acknowledgment (bitmasks; identifiers only). Intended as a POC successor to Mojo’s `unsafe_` naming convention. Design note: [proposals/risk.md](proposals/risk.md).
+- **`risk`** — block-level `risk(OOB):` / `risk(OOB if not BOUNDS_CHECK else NO_RISK):` acknowledgment (bitmasks; identifiers only). Intended as a POC successor to Mojo’s `unsafe_` naming convention. Design note: [proposals/risk.md](proposals/risk.md). Examples: [web/risk/](web/risk/).
 
 ## Project layout
 
 - **`src/`** – Source: `tokenizer.js`, `parser.js`, `emit.js`, `runtime.js`, `runtime-traits.js`, `run.js`, `ast-types.js`, `token-types.js`, `extensions/` (experimental feature packs).
 - **`proposals/`** – Design notes for experimental language features (e.g. `risk.md`).
 - **`test/`** – Test suite: `run-tests.js` (runner), `constructs/*.mojo` (core constructs), `extensions/<feature>/*.mojo` (experimental packs).
-- **`web/`** – Web project: `index.html` (run Mojo in the browser), `entry.js` (browser bundle entry).
+- **`web/`** – Web project: `index.html` (run Mojo in the browser), `entry.js` (browser bundle entry), `risk/` (experimental risk feature examples).
 - **`run.js`** – CLI entry (delegates to `src/run.js`).
 - **`build.js`** – Bundles `web/entry.js` with esbuild; `npm run build` produces `web/mojo-js.min.js`.
 

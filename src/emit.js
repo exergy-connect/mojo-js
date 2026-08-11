@@ -22,7 +22,7 @@ function emitProgram(program, runtimeVar = '__runtime', options = {}) {
   out.push('');
 
   for (const s of program.structs) {
-    emitStruct(s, out, structNames, inner);
+    emitStruct(s, out, structNames, inner, ctx);
   }
 
   for (const fn of program.functions) {
@@ -46,7 +46,7 @@ function emitProgram(program, runtimeVar = '__runtime', options = {}) {
   return out.join('\n');
 }
 
-function emitStruct(struct, out, structNames, baseIndent) {
+function emitStruct(struct, out, structNames, baseIndent, ctx) {
   const ind = baseIndent || '  ';
   const name = struct.name;
   const inits = struct.methods.filter((m) => m.name === '__init__');
@@ -77,7 +77,7 @@ function emitStruct(struct, out, structNames, baseIndent) {
     const params = m.params.filter((p) => p.name !== 'self').map((p) => p.name);
     out.push(`${ind}  self.${m.name} = function(${params.join(', ')}) {`);
     for (const stmt of m.body) {
-      emitStatement(stmt, out, structNames, ind.length + 4);
+      emitStatement(stmt, out, structNames, ind.length + 4, ctx);
     }
     out.push(`${ind}  };`);
   }
