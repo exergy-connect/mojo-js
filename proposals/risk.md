@@ -79,7 +79,7 @@ def reverse(buf, start, end) risk(OOB | UNINIT):
     ...
 ```
 
-**Call-site discharge:** calling a `risk(A|B)` function requires an enclosing scope that covers `A|B` — either a `risk(A|B):` block or the caller’s own `risk(A|B)` annotation. Otherwise this is a **compile-time error**. Pass `--accept-risks` (or `parse(..., { acceptRisks: true })`) to skip the check.
+**Call-site discharge:** calling a `risk(A|B)` function requires an enclosing scope that covers `A|B` — either a `risk(A|B):` block or the caller’s own `risk(A|B)` annotation. Otherwise this is a **semantic error** (not a parse error). Pass `--accept-risks` (or `parse(..., { acceptRisks: true })`) to skip the check.
 
 ### Simple
 
@@ -127,9 +127,9 @@ AST: `{ type: Risk, clauses: [...], body: Statement[] }`; functions/methods may 
 - conditional → `{ kind: 'conditional', thenMask, condition, elseMask }`
 - Signature `risk(A|B)` → `riskMask = A|B` (no conditionals on signatures)
 
-**Compile-time coverage** ([`check.js`](../src/extensions/risk/check.js)): every call to a callee with non-zero `riskMask` must occur under an enclosing scope whose acknowledged bits cover that mask. Function `riskMask` is identical to wrapping the body in `risk(...)`. Block scopes OR bits from their clauses (conditionals contribute `then|else`).
+**Compile-time coverage** ([`check.js`](../src/extensions/risk/check.js)): every call to a callee with non-zero `riskMask` must occur under an enclosing scope whose acknowledged bits cover that mask. Function `riskMask` is identical to wrapping the body in `risk(...)`. Block scopes OR bits from their clauses (conditionals contribute `then|else`). Failures throw `SemanticError`.
 
-Emit still calls `acknowledgeRisk(<maskExpr>)` then runs block bodies (runtime no-op documentation in JS). Enforcement is the compile-time check unless `--accept-risks`.
+Emit still calls `acknowledgeRisk(<maskExpr>)` then runs block bodies (runtime no-op documentation in JS). Enforcement is the semantic check unless `--accept-risks`.
 
 ## 10. Extension hook integration
 

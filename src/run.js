@@ -59,7 +59,8 @@ function main() {
   try {
     program = parse(source, options);
   } catch (e) {
-    console.error('Parse error:', e.message);
+    const label = e.name === 'SemanticError' ? 'Semantic error' : 'Parse error';
+    console.error(`${label}:`, e.message);
     process.exit(1);
   }
 

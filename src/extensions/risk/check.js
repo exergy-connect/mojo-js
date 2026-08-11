@@ -8,6 +8,13 @@
 const T = require('../../ast-types.js');
 const { formatRiskMask } = require('./bits.js');
 
+class SemanticError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'SemanticError';
+  }
+}
+
 /**
  * Static mask introduced by a risk(...) block's clauses.
  * Conditionals contribute thenMask | elseMask (bits that may be acknowledged).
@@ -103,7 +110,7 @@ function checkExpr(expr, scopeMask, table, currentStruct, line) {
     if (info && (scopeMask & info.mask) !== info.mask) {
       const missing = info.mask & ~scopeMask;
       const where = line != null ? ` at line ${line}` : '';
-      throw new Error(
+      throw new SemanticError(
         `Call to '${info.label}' requires risk(${formatRiskMask(info.mask)})` +
           `${where}; missing ${formatRiskMask(missing)} ` +
           `(enclosing scope has ${formatRiskMask(scopeMask) || 'NO_RISK'}). ` +
@@ -226,4 +233,4 @@ function checkRisks(program, options = {}) {
   }
 }
 
-module.exports = { checkRisks, clausesAckMask, buildRiskTable };
+module.exports = { checkRisks, clausesAckMask, buildRiskTable, SemanticError };
