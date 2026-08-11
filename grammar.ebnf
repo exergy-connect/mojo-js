@@ -40,7 +40,7 @@ type_param      = ID ":" type ;
 risk_form       = "risk" "(" risk_clause { "|" risk_clause } ")" ;
 risk_annot      = risk_form ;
 risk_stmt       = risk_form ":" block ;
-risk_clause     = risk_name | risk_name "if" expression "else" risk_name ;
+risk_clause     = risk_name [ "if" expression "else" risk_name ] ;
 risk_name       = ID ;
 
 

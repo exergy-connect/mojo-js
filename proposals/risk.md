@@ -92,7 +92,7 @@ In the POC, introduction is on the callee (`risk(OOB)` on the signature); acknow
 risk_form    = "risk" "(" risk_clause { "|" risk_clause } ")"
 risk_stmt    = risk_form ":" block
 risk_annot   = risk_form
-risk_clause  = risk_name | risk_name "if" expression "else" risk_name
+risk_clause  = risk_name [ "if" expression "else" risk_name ]
 risk_name    = ID
 ```
 
